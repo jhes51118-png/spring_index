@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扭簧測試壽命分析平台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-btn.active {
+            background-color: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Sidebar & Content Layout -->
+    <div class="flex h-full">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col shadow-xl z-20">
+            <div class="p-6 border-b border-slate-700">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-spring text-blue-400 text-2xl"></i>
+                    <h1 class="text-xl font-bold tracking-wider">扭簧測試分析</h1>
+                </div>
+                <p class="text-slate-400 text-xs mt-2">Engineering Report v1.0</p>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 hover:bg-slate-800 transition-all text-slate-300 border border-transparent">
+                    <i class="fa-solid fa-chart-line w-5"></i>
+                    總覽儀表板
+                </button>
+                <button onclick="switchTab('data')" id="nav-data" class="nav-btn w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 hover:bg-slate-800 transition-all text-slate-300 border border-transparent">
+                    <i class="fa-solid fa-table w-5"></i>
+                    詳細數據與篩選
+                </button>
+                <button onclick="switchTab('insights')" id="nav-insights" class="nav-btn w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 hover:bg-slate-800 transition-all text-slate-300 border border-transparent">
+                    <i class="fa-solid fa-lightbulb w-5"></i>
+                    關鍵洞察報告
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-slate-700">
+                <div class="bg-slate-800 rounded-lg p-3 text-sm">
+                    <p class="text-slate-400 mb-1">目前最佳方案</p>
+                    <div class="font-bold text-green-400 flex items-center gap-2">
+                        <i class="fa-solid fa-trophy"></i> 方案二 (3圈)
+                    </div>
+                    <p class="text-white font-mono mt-1">80,000+ Cycles</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Header -->
+        <div class="md:hidden fixed top-0 w-full bg-slate-900 text-white z-50 p-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-spring text-blue-400"></i>
+                <span class="font-bold">扭簧測試分析</span>
+            </div>
+            <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="text-gray-300 hover:text-white">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden fixed top-14 w-full bg-slate-800 text-white z-40 border-t border-slate-700">
+            <button onclick="switchTab('dashboard'); toggleMobileMenu()" class="block w-full text-left p-4 border-b border-slate-700 hover:bg-slate-700">總覽儀表板</button>
+            <button onclick="switchTab('data'); toggleMobileMenu()" class="block w-full text-left p-4 border-b border-slate-700 hover:bg-slate-700">詳細數據</button>
+            <button onclick="switchTab('insights'); toggleMobileMenu()" class="block w-full text-left p-4 hover:bg-slate-700">關鍵洞察</button>
+        </div>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-8 pt-20 md:pt-8 relative">
+            
+            <!-- VIEW: DASHBOARD -->
+            <div id="view-dashboard" class="animate-fade-in space-y-6">
+                <header class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">執行摘要 (Executive Summary)</h2>
+                    <p class="text-slate-500">測試數據核心指標與結論概覽</p>
+                </header>
+
+                <!-- Key Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Metric 1 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all relative overflow-hidden group">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-blue-500"></div>
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">最高測試壽命</p>
+                                <h3 class="text-3xl font-bold text-slate-800 mt-1">80,000+</h3>
+                            </div>
+                            <div class="bg-blue-50 p-3 rounded-lg text-blue-600 group-hover:bg-blue-100 transition-colors">
+                                <i class="fa-solid fa-crown text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600"><span class="font-semibold text-blue-600">方案二 (3圈)</span> 表現最佳，且持續通過測試。</p>
+                    </div>
+
+                    <!-- Metric 2 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all relative overflow-hidden group">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-red-500"></div>
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">2圈設計平均失效點</p>
+                                <h3 class="text-3xl font-bold text-slate-800 mt-1">~20,000</h3>
+                            </div>
+                            <div class="bg-red-50 p-3 rounded-lg text-red-600 group-hover:bg-red-100 transition-colors">
+                                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600">2圈配置大部分在 20k-30k 區間失效，穩定性不足。</p>
+                    </div>
+
+                    <!-- Metric 3 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all relative overflow-hidden group">
+                        <div class="absolute right-0 top-0 h-full w-1 bg-green-500"></div>
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">3圈設計潛力</p>
+                                <h3 class="text-3xl font-bold text-slate-800 mt-1">2.5x ~ 4x</h3>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg text-green-600 group-hover:bg-green-100 transition-colors">
+                                <i class="fa-solid fa-arrow-trend-up text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600">相較於2圈，3圈設計的壽命提升顯著 (50k~80k)。</p>
+                    </div>
+                </div>
+
+                <!-- Recommendation Banner -->
+                <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <h3 class="text-lg font-bold mb-2"><i class="fa-solid fa-thumbs-up text-yellow-400 mr-2"></i> 核心建議：切換至 3 圈 (3 Coils) 設計</h3>
+                        <p class="text-slate-300 text-sm">數據壓倒性顯示 3 圈設計優於 2 圈。建議優先採用方案二或方案八的 3 圈配置。</p>
+                    </div>
+                    <button onclick="switchTab('data')" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/50 whitespace-nowrap">
+                        查看詳細數據 <i class="fa-solid fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Simple Visual Comparison -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-6">壽命對比概覽 (Life Cycle Comparison)</h3>
+                    <div class="space-y-6">
+                        <!-- Bar 1 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-semibold text-slate-700">方案二 (3圈) - 最佳</span>
+                                <span class="text-slate-600 font-mono">80,000+ (Pass)</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div class="bg-green-500 h-4 rounded-full" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <!-- Bar 2 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-semibold text-slate-700">方案一 (3圈)</span>
+                                <span class="text-slate-600 font-mono">50,000 (Pass)</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div class="bg-green-400 h-4 rounded-full" style="width: 62.5%"></div>
+                            </div>
+                        </div>
+                        <!-- Bar 3 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-semibold text-slate-700">方案二 (2圈) - 極限</span>
+                                <span class="text-slate-600 font-mono">49,000 (Fail)</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div class="bg-yellow-500 h-4 rounded-full" style="width: 61%"></div>
+                            </div>
+                        </div>
+                        <!-- Bar 4 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-semibold text-slate-700">一般 2圈方案平均</span>
+                                <span class="text-slate-600 font-mono">~20,000 (Fail)</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div class="bg-red-400 h-4 rounded-full" style="width: 25%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: DATA -->
+            <div id="view-data" class="hidden animate-fade-in space-y-6">
+                <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">詳細數據分析</h2>
+                        <p class="text-slate-500">可互動篩選各方案測試結果</p>
+                    </div>
+                    
+                    <!-- View Toggle -->
+                    <div class="bg-white p-1 rounded-lg border border-gray-200 inline-flex shadow-sm">
+                        <button onclick="toggleDataView('table')" id="btn-view-table" class="px-4 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700 transition-all">
+                            <i class="fa-solid fa-list mr-1"></i> 表格
+                        </button>
+                        <button onclick="toggleDataView('chart')" id="btn-view-chart" class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all">
+                            <i class="fa-solid fa-chart-simple mr-1"></i> 圖表
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Filters -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-2 items-center">
+                    <span class="text-sm font-semibold text-gray-600 mr-2"><i class="fa-solid fa-filter mr-1"></i> 篩選條件:</span>
+                    <button onclick="filterData('all')" class="filter-btn active px-3 py-1.5 rounded-full text-xs font-medium border transition-all bg-slate-800 text-white border-slate-800" data-filter="all">全部顯示</button>
+                    <button onclick="filterData('3coils')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-all bg-white text-gray-600 border-gray-200 hover:border-green-500 hover:text-green-600" data-filter="3coils">僅顯示 3 圈</button>
+                    <button onclick="filterData('2coils')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-all bg-white text-gray-600 border-gray-200 hover:border-yellow-500 hover:text-yellow-600" data-filter="2coils">僅顯示 2 圈</button>
+                    <button onclick="filterData('pass')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-all bg-white text-gray-600 border-gray-200 hover:border-blue-500 hover:text-blue-600" data-filter="pass">Pass 案例</button>
+                    <button onclick="filterData('running')" class="filter-btn px-3 py-1.5 rounded-full text-xs font-medium border transition-all bg-white text-gray-600 border-gray-200 hover:border-purple-500 hover:text-purple-600" data-filter="running">進行中</button>
+                </div>
+
+                <!-- Content Container (Table/Chart) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[400px]">
+                    
+                    <!-- Table View -->
+                    <div id="data-table-container" class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 text-gray-600 border-b border-gray-200 uppercase text-xs">
+                                <tr>
+                                    <th class="px-6 py-4">方案 (Scheme)</th>
+                                    <th class="px-6 py-4">配置 (Config)</th>
+                                    <th class="px-6 py-4 text-center">圈數 (Coils)</th>
+                                    <th class="px-6 py-4">測試結果 (Result)</th>
+                                    <th class="px-6 py-4 text-center">狀態 (Status)</th>
+                                    <th class="px-6 py-4">備註 (Note)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="divide-y divide-gray-100">
+                                <!-- JS will populate this -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Chart View (Hidden by default) -->
+                    <div id="data-chart-container" class="hidden p-6">
+                        <div id="chart-bars" class="space-y-3">
+                            <!-- JS will populate this -->
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="empty-state" class="hidden p-12 text-center text-gray-400">
+                        <i class="fa-solid fa-magnifying-glass text-4xl mb-3"></i>
+                        <p>沒有符合篩選條件的數據</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: INSIGHTS -->
+            <div id="view-insights" class="hidden animate-fade-in space-y-6">
+                <header class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">關鍵變因分析 (Insights)</h2>
+                    <p class="text-slate-500">深入探討影響壽命的物理因子與工藝問題</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Insight Card 1 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                <i class="fa-solid fa-arrows-spin"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800">圈數效應 (Coil Count)</h3>
+                        </div>
+                        <p class="text-gray-600 mb-4 leading-relaxed">
+                            這是有史以來最顯著的變因。3 圈設計通過大幅降低單位長度的扭轉應力，成功將壽命從 <span class="font-bold text-red-500">20k</span> 提升至 <span class="font-bold text-green-600">80k+</span>。
+                        </p>
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm">
+                            <div class="flex justify-between mb-2">
+                                <span>2 圈極限</span>
+                                <span class="font-mono text-slate-700">49,000 cycles</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>3 圈極限 (目前)</span>
+                                <span class="font-mono text-green-600 font-bold">80,000+ cycles</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Insight Card 2 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                                <i class="fa-solid fa-vial-circle-check"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800">組裝敏感度 (Assembly)</h3>
+                        </div>
+                        <p class="text-gray-600 mb-4 leading-relaxed">
+                            方案二 (2圈) 的複測結果非常不穩定 (13k~30k vs 首次 49k)。數據指出「膠合 (Gluing)」和「上油」可能是負面因子。
+                        </p>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-exclamation text-red-500 mt-1"></i>
+                                <span><strong>膠合風險：</strong>機台 4-L/R (已膠合) 僅跑 13k 就失效。</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <i class="fa-solid fa-circle-exclamation text-red-500 mt-1"></i>
+                                <span><strong>上油無效：</strong>方案六 (上油) 僅 15k fail，低於平均。</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Insight Card 3 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-2">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                                <i class="fa-solid fa-compress"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800">預壓設定 (Pre-stress) - 方案七教訓</h3>
+                        </div>
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="flex-1">
+                                <p class="text-gray-600 leading-relaxed mb-4">
+                                    方案七展示了即使是 3 圈設計，錯誤的預壓設定也會導致災難性的早夭。
+                                </p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-red-50 p-3 rounded border border-red-100">
+                                        <div class="text-xs text-red-600 font-bold uppercase">Fail (13k)</div>
+                                        <div class="text-sm text-slate-700 mt-1">預壓: 50~140</div>
+                                    </div>
+                                    <div class="bg-green-50 p-3 rounded border border-green-100">
+                                        <div class="text-xs text-green-600 font-bold uppercase">Pass (17k+)</div>
+                                        <div class="text-sm text-slate-700 mt-1">預壓: 60~140</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex-1 flex items-center justify-center bg-slate-50 rounded-lg p-4 border border-dashed border-slate-300">
+                                <p class="text-sm text-slate-500 text-center italic">
+                                    "預壓範圍需嚴格控制在 60 以上，過低的預壓可能導致回彈不足或接觸問題。"
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Data Source
+        const testData = [
+            { scheme: "方案一", config: "JL+新版軸+1.0Mylar", coils: 2, result: 20000, resultText: "20k fail", status: "Done", note: "基準線", isPass: false },
+            { scheme: "方案一", config: "JL+新版軸+1.0Mylar", coils: 3, result: 50000, resultText: "50k pass", status: "Done", note: "3圈顯著提升", isPass: true },
+            { scheme: "方案二", config: "LH+新版軸+0.5Mylar+1.0o環", coils: 2, result: 49000, resultText: "49k fail", status: "Done", note: "2圈最佳表現", isPass: false },
+            { scheme: "方案二 (複測)", config: "LH+新版軸+... (已膠合)", coils: 2, result: 13000, resultText: "13k fail", status: "Done", note: "膠合導致早夭", isPass: false },
+            { scheme: "方案二 (複測)", config: "LH+新版軸+...", coils: 2, result: 30000, resultText: "30k fail", status: "Done", note: "離散性大", isPass: false },
+            { scheme: "方案二", config: "LH+新版軸+0.5Mylar+1.0o環", coils: 3, result: 80000, resultText: "80k pass", status: "Done", note: "目前最佳數據", isPass: true },
+            { scheme: "方案三", config: "LH+新版軸+1.5Mylar", coils: 2, result: 30000, resultText: "30k fail", status: "Done", note: "加厚Mylar略有改善", isPass: false },
+            { scheme: "方案四", config: "JL+新版軸+...舊小mim", coils: 2, result: 20000, resultText: "20k fail", status: "Done", note: "MIM件影響不大", isPass: false },
+            { scheme: "方案六", config: "LH+新版軸 (有上油)", coils: 2, result: 15000, resultText: "15k fail", status: "Done", note: "上油無助益", isPass: false },
+            { scheme: "方案七", config: "JL+新版軸+1.0o環", coils: 3, result: 13000, resultText: "13k fail", status: "Done", note: "預壓 50-140 (Fail)", isPass: false },
+            { scheme: "方案七", config: "JL+新版軸+1.0o環", coils: 3, result: 17000, resultText: "17k pass", status: "Running", note: "預壓 60-140 (Pass)", isPass: true },
+            { scheme: "方案八", config: "JL+新版軸+1.0o環", coils: 3, result: 33000, resultText: "33k pass", status: "Running", note: "表現穩定", isPass: true },
+        ];
+
+        let currentFilter = 'all';
+        let currentView = 'table'; // table or chart
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTable(testData);
+            renderChart(testData);
+        });
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            // Hide all views
+            ['dashboard', 'data', 'insights'].forEach(id => {
+                document.getElementById('view-' + id).classList.add('hidden');
+                document.getElementById('nav-' + id).classList.remove('active', 'bg-blue-600', 'text-white');
+                document.getElementById('nav-' + id).classList.add('text-slate-300');
+            });
+
+            // Show selected view
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+            
+            // Update Nav State
+            const activeBtn = document.getElementById('nav-' + tabId);
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('text-slate-300');
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.add('hidden');
+        }
+
+        // Data View Toggle (Table vs Chart)
+        function toggleDataView(view) {
+            currentView = view;
+            const tableContainer = document.getElementById('data-table-container');
+            const chartContainer = document.getElementById('data-chart-container');
+            const btnTable = document.getElementById('btn-view-table');
+            const btnChart = document.getElementById('btn-view-chart');
+
+            if (view === 'table') {
+                tableContainer.classList.remove('hidden');
+                chartContainer.classList.add('hidden');
+                
+                btnTable.classList.add('bg-blue-100', 'text-blue-700');
+                btnTable.classList.remove('text-gray-600', 'hover:bg-gray-50');
+                
+                btnChart.classList.remove('bg-blue-100', 'text-blue-700');
+                btnChart.classList.add('text-gray-600', 'hover:bg-gray-50');
+            } else {
+                tableContainer.classList.add('hidden');
+                chartContainer.classList.remove('hidden');
+
+                btnChart.classList.add('bg-blue-100', 'text-blue-700');
+                btnChart.classList.remove('text-gray-600', 'hover:bg-gray-50');
+
+                btnTable.classList.remove('bg-blue-100', 'text-blue-700');
+                btnTable.classList.add('text-gray-600', 'hover:bg-gray-50');
+            }
+        }
+
+        // Filter Logic
+        function filterData(filterType) {
+            currentFilter = filterType;
+            
+            // Update buttons style
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filterType) {
+                    btn.classList.add('bg-slate-800', 'text-white', 'border-slate-800');
+                    btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+                } else {
+                    btn.classList.remove('bg-slate-800', 'text-white', 'border-slate-800');
+                    btn.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+                }
+            });
+
+            // Filter Array
+            const filtered = testData.filter(item => {
+                if (filterType === 'all') return true;
+                if (filterType === '3coils') return item.coils === 3;
+                if (filterType === '2coils') return item.coils === 2;
+                if (filterType === 'pass') return item.isPass;
+                if (filterType === 'running') return item.status === 'Running';
+                return true;
+            });
+
+            // Render
+            renderTable(filtered);
+            renderChart(filtered);
+
+            // Empty State
+            const emptyState = document.getElementById('empty-state');
+            const container = currentView === 'table' ? document.getElementById('data-table-container') : document.getElementById('data-chart-container');
+            
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                document.getElementById('data-table-container').classList.add('hidden');
+                document.getElementById('data-chart-container').classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                if(currentView === 'table') document.getElementById('data-table-container').classList.remove('hidden');
+                else document.getElementById('data-chart-container').classList.remove('hidden');
+            }
+        }
+
+        // Render Table
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0';
+                
+                // Status Badge
+                let statusBadge = '';
+                if (item.status === 'Done') statusBadge = '<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">Done</span>';
+                else statusBadge = '<span class="px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-full font-medium flex w-fit mx-auto items-center gap-1"><i class="fa-solid fa-spinner fa-spin text-[10px]"></i> Running</span>';
+
+                // Result Color
+                let resultClass = item.isPass ? 'text-green-600 font-bold' : 'text-red-500 font-medium';
+                if (item.status === 'Running') resultClass = 'text-purple-600 font-bold';
+
+                // Coil Badge
+                let coilClass = item.coils === 3 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-slate-800">${item.scheme}</td>
+                    <td class="px-6 py-4 text-xs text-slate-500 font-mono">${item.config}</td>
+                    <td class="px-6 py-4 text-center"><span class="px-2 py-0.5 rounded ${coilClass} text-xs font-bold">${item.coils} 圈</span></td>
+                    <td class="px-6 py-4 ${resultClass}">${item.resultText}</td>
+                    <td class="px-6 py-4 text-center">${statusBadge}</td>
+                    <td class="px-6 py-4 text-slate-500 text-xs">${item.note}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Chart (Simple CSS Bars)
+        function renderChart(data) {
+            const container = document.getElementById('chart-bars');
+            container.innerHTML = '';
+
+            // Find max value for scaling (min 80000 for visuals)
+            const maxVal = Math.max(...data.map(d => d.result), 80000);
+
+            data.forEach(item => {
+                const widthPct = (item.result / maxVal) * 100;
+                let barColor = item.isPass ? 'bg-green-500' : 'bg-red-400';
+                if (item.status === 'Running') barColor = 'bg-purple-500';
+                if (item.coils === 2 && !item.isPass) barColor = 'bg-yellow-500'; // Make 2 coils fail distinct (Yellowish/Orange)
+
+                const row = document.createElement('div');
+                row.className = 'mb-4';
+                row.innerHTML = `
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-bold text-slate-700">${item.scheme} <span class="font-normal text-slate-500">(${item.coils}圈)</span></span>
+                        <span class="font-mono text-slate-600">${item.resultText}</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden flex items-center relative group cursor-pointer hover:bg-gray-200 transition-colors">
+                        <div class="${barColor} h-6 rounded-full transition-all duration-500 flex items-center justify-end px-2 text-[10px] text-white font-bold shadow-sm" style="width: ${widthPct}%">
+                            ${item.result > 15000 ? item.result.toLocaleString() : ''}
+                        </div>
+                        <div class="absolute inset-0 flex items-center ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity text-xs text-slate-600">
+                            ${item.note}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
