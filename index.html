@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>筆電異音分析儀 (Laptop Noise Analyzer)</title>
     
     <!-- Tailwind CSS -->
@@ -17,18 +17,28 @@
 
     <style>
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            /* 防止手機下拉重整干擾 App 操作 */
+            overscroll-behavior-y: none; 
+        }
+        /* 隱藏捲軸但保持滾動功能 (針對 Webkit) */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-slate-800 h-screen overflow-hidden">
-    <div id="root"></div>
+<body class="bg-gray-100 text-slate-800 h-[100dvh] w-screen overflow-hidden">
+    <div id="root" class="h-full w-full"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
 
-        // --- Icons Components (Inline SVG replacement for lucide-react) ---
-        const IconBase = ({ children, size = 24, className = "" }) => (
+        // --- Icons Components ---
+        const IconBase = ({ children, size = 20, className = "" }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 width={size} 
@@ -46,23 +56,14 @@
         );
 
         const Activity = (props) => (
-            <IconBase {...props}>
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-            </IconBase>
+            <IconBase {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></IconBase>
         );
-
         const Play = (props) => (
-            <IconBase {...props}>
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </IconBase>
+            <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"></polygon></IconBase>
         );
-
         const Square = (props) => (
-            <IconBase {...props}>
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            </IconBase>
+            <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></IconBase>
         );
-
         const RefreshCcw = (props) => (
             <IconBase {...props}>
                 <path d="M3 2v6h6"></path>
@@ -71,7 +72,6 @@
                 <path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path>
             </IconBase>
         );
-
         const Mic = (props) => (
             <IconBase {...props}>
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -80,19 +80,16 @@
                 <line x1="8" y1="23" x2="16" y2="23"></line>
             </IconBase>
         );
-
         const MapPin = (props) => (
             <IconBase {...props}>
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                 <circle cx="12" cy="10" r="3"></circle>
             </IconBase>
         );
-
-        const Info = (props) => (
+        const Settings = (props) => (
             <IconBase {...props}>
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </IconBase>
         );
 
@@ -101,49 +98,63 @@
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [decibels, setDecibels] = useState(-100);
             const [peakFreq, setPeakFreq] = useState(0);
-            const [gain, setGain] = useState(1.0); // Software gain
+            const [gain, setGain] = useState(1.5);
+            const [showSettings, setShowSettings] = useState(false);
             
-            // Heatmap state
-            // 3x4 grid representing a laptop base
+            // Heatmap state: 3x4 grid
             const [gridData, setGridData] = useState(Array(12).fill(null));
             
             const audioContextRef = useRef(null);
             const analyserRef = useRef(null);
-            const sourceRef = useRef(null);
             const rafIdRef = useRef(null);
             const canvasRef = useRef(null);
+            const containerRef = useRef(null);
             const gainNodeRef = useRef(null);
 
-            // Initialize Audio Context
+            // RWD Canvas Logic
+            useEffect(() => {
+                const handleResize = () => {
+                    if (canvasRef.current && containerRef.current) {
+                        // Match canvas internal resolution to CSS size for crisp lines
+                        canvasRef.current.width = containerRef.current.clientWidth;
+                        canvasRef.current.height = containerRef.current.clientHeight;
+                    }
+                };
+                
+                window.addEventListener('resize', handleResize);
+                handleResize(); // Init
+                
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
             const startAnalysis = async () => {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
                     
                     const analyser = audioContextRef.current.createAnalyser();
-                    analyser.fftSize = 2048;
+                    analyser.fftSize = 1024; // Smaller FFT for faster reaction on mobile
+                    analyser.smoothingTimeConstant = 0.8;
                     analyserRef.current = analyser;
 
-                    // Create Gain Node for sensitivity adjustment
                     const gainNode = audioContextRef.current.createGain();
                     gainNode.gain.value = gain;
                     gainNodeRef.current = gainNode;
 
                     const source = audioContextRef.current.createMediaStreamSource(stream);
                     source.connect(gainNode);
-                    gainNode.connect(analyser); // Connect to analyser but NOT destination (to prevent feedback loop)
+                    gainNode.connect(analyser);
                     
-                    sourceRef.current = source;
                     setIsAnalyzing(true);
                     drawSpectrum();
                 } catch (err) {
-                    console.error("Error accessing microphone:", err);
-                    alert("無法存取麥克風，請確認瀏覽器權限，並確保使用 HTTPS 或 Localhost 環境。");
+                    console.error("Mic Error:", err);
+                    alert("無法存取麥克風。請確認：\n1. 瀏覽器權限已允許\n2. 使用 HTTPS 或 Localhost\n3. 手機未靜音");
                 }
             };
 
             const stopAnalysis = () => {
-                if (audioContextRef.current) {
+                if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
                     audioContextRef.current.close();
                 }
                 if (rafIdRef.current) {
@@ -161,7 +172,6 @@
                 }
             };
 
-            // Main Analysis Loop
             const drawSpectrum = () => {
                 const canvas = canvasRef.current;
                 if (!canvas || !analyserRef.current) return;
@@ -174,52 +184,45 @@
                 
                 analyserRef.current.getByteFrequencyData(dataArray);
 
-                // 1. Draw Background
-                ctx.fillStyle = '#1e293b';
+                // Background
+                ctx.fillStyle = '#0f172a'; // Darker slate
                 ctx.fillRect(0, 0, width, height);
 
-                // 2. Calculate Peak Frequency
+                // Stats Calculation
                 let maxVal = -Infinity;
                 let maxIndex = 0;
-                // Calculate RMS for dB
                 let sum = 0;
 
-                const barWidth = (width / bufferLength) * 2.5;
+                // Drawing settings
+                const barWidth = (width / bufferLength) * 2.0; 
                 let x = 0;
 
                 for (let i = 0; i < bufferLength; i++) {
                     const v = dataArray[i];
                     
-                    // Find Peak Frequency
                     if (v > maxVal) {
                         maxVal = v;
                         maxIndex = i;
                     }
-
-                    // Sum for RMS (approximate)
                     sum += v * v;
 
-                    // Draw Bar
                     const percent = v / 255;
                     const barHeight = height * percent;
                     
-                    // Color based on frequency (Low: Blue, Mid: Green, High: Red)
-                    const hue = (i / bufferLength) * 360; 
-                    ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+                    // Gradient-like coloring
+                    const hue = 200 + (i / bufferLength) * 160; // Blue to Red range
+                    ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+                    
+                    // Rounded caps looks better on mobile
                     ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-
-                    x += barWidth + 1;
+                    x += barWidth + 0.5;
                 }
 
-                // Update React State for UI
+                // Update UI state (Throttled could be better but Raf is OK for this simple app)
                 const rms = Math.sqrt(sum / bufferLength);
-                const db = 20 * Math.log10(rms / 255); // Normalized roughly
-                // Map -60dB to 0dB range for easier reading
-                const displayDb = Math.max(-100, Math.round(db * 100) / 100); 
-                
-                setDecibels(displayDb);
+                const db = 20 * Math.log10(rms / 255);
+                setDecibels(Math.max(-100, Math.round(db * 10) / 10)); // 1 decimal
 
-                // Calculate actual frequency of the peak bin
                 const nyquist = audioContextRef.current.sampleRate / 2;
                 const frequency = maxIndex * (nyquist / bufferLength);
                 setPeakFreq(Math.round(frequency));
@@ -227,17 +230,15 @@
                 rafIdRef.current = requestAnimationFrame(drawSpectrum);
             };
 
-            // Heatmap Logic
             const recordPoint = (index) => {
                 if (!isAnalyzing) {
-                    alert("請先開始分析 (Start Analysis)");
+                    alert("請先點擊上方「開始」按鈕");
                     return;
                 }
                 
                 const newGrid = [...gridData];
-                // Scale dB to a 0-100 score for visualization context
-                // Assuming typical noise floor -50dB, loud noise -10dB
-                let intensity = (decibels + 60) * 2; 
+                // Mobile tuning: slightly more sensitive visualization
+                let intensity = (decibels + 50) * 2.5; 
                 intensity = Math.max(0, Math.min(100, intensity));
 
                 newGrid[index] = {
@@ -248,153 +249,133 @@
                 setGridData(newGrid);
             };
 
-            const clearGrid = () => {
-                setGridData(Array(12).fill(null));
-            };
+            const clearGrid = () => setGridData(Array(12).fill(null));
 
-            const getCellColor = (intensity) => {
-                if (intensity === undefined || intensity === null) return 'bg-gray-100 hover:bg-gray-200';
-                // Green to Red gradient
-                if (intensity < 30) return 'bg-green-200 border-green-500 border-2';
-                if (intensity < 60) return 'bg-yellow-200 border-yellow-500 border-2';
-                return 'bg-red-300 border-red-600 border-2 animate-pulse';
+            const getCellStyles = (cell) => {
+                const base = "relative w-full h-full rounded-xl flex flex-col items-center justify-center transition-all duration-200 active:scale-95 touch-manipulation shadow-sm ";
+                
+                if (!cell) return base + "bg-white border-2 border-dashed border-slate-200 active:border-blue-400 active:bg-blue-50";
+                
+                const { intensity } = cell;
+                if (intensity < 30) return base + "bg-emerald-100 border-2 border-emerald-400 text-emerald-800";
+                if (intensity < 60) return base + "bg-amber-100 border-2 border-amber-400 text-amber-800";
+                return base + "bg-rose-100 border-2 border-rose-500 text-rose-800 animate-pulse";
             };
 
             return (
-                <div className="flex flex-col h-screen bg-gray-50 p-4 font-sans text-slate-800">
-                    <header className="mb-4 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div>
-                            <h1 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                                <Activity className="text-blue-600" />
-                                筆電機構異音分析儀
+                <div className="flex flex-col h-full bg-slate-50 font-sans select-none">
+                    {/* 1. Header & Controls (Compact) */}
+                    <div className="flex-none bg-white px-4 py-3 shadow-sm flex items-center justify-between z-10">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+                                <Activity size={18} />
+                            </div>
+                            <h1 className="font-bold text-slate-800 text-lg leading-none">
+                                機構異音分析
+                                <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Mobile Analyzer</span>
                             </h1>
-                            <p className="text-sm text-slate-500">聲源定位與頻譜分析工具</p>
                         </div>
                         <div className="flex gap-2">
+                            <button 
+                                onClick={() => setShowSettings(!showSettings)}
+                                className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-slate-100 text-slate-800' : 'text-slate-400'}`}
+                            >
+                                <Settings size={20} />
+                            </button>
                             {!isAnalyzing ? (
-                                <button 
-                                    onClick={startAnalysis}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-                                >
-                                    <Play size={18} /> 開始分析
+                                <button onClick={startAnalysis} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-blue-200 shadow-md active:bg-blue-700 font-bold text-sm">
+                                    <Play size={16} /> 開始
                                 </button>
                             ) : (
-                                <button 
-                                    onClick={stopAnalysis}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium"
-                                >
-                                    <Square size={18} /> 停止
+                                <button onClick={stopAnalysis} className="flex items-center gap-1 px-4 py-2 bg-rose-500 text-white rounded-lg shadow-rose-200 shadow-md active:bg-rose-600 font-bold text-sm">
+                                    <Square size={16} /> 停止
                                 </button>
                             )}
                         </div>
-                    </header>
+                    </div>
 
-                    <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
-                        {/* Left Panel: Real-time Data */}
-                        <div className="flex-1 flex flex-col gap-4">
-                            {/* Signal Visualizer */}
-                            <div className="bg-slate-900 rounded-xl p-4 shadow-lg flex-1 min-h-[250px] relative">
-                                <canvas 
-                                    ref={canvasRef} 
-                                    width={600} 
-                                    height={300} 
-                                    className="w-full h-full object-cover rounded-lg opacity-90"
-                                />
-                                <div className="absolute top-4 left-4 text-green-400 font-mono text-sm bg-black/50 p-2 rounded">
-                                    <div>主要頻率 (Peak Freq): <span className="text-xl font-bold text-white">{peakFreq} Hz</span></div>
-                                    <div>相對強度 (Level): <span className="text-xl font-bold text-white">{decibels.toFixed(1)} dB</span></div>
-                                </div>
-                                
-                                {!isAnalyzing && (
-                                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-                                        <p>點擊「開始分析」以啟動麥克風</p>
-                                    </div>
-                                )}
+                    {/* Gain Setting (Collapsible) */}
+                    {showSettings && (
+                        <div className="flex-none bg-slate-100 px-4 py-3 border-b border-slate-200 animate-fade-in">
+                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                <span>麥克風靈敏度 (Gain)</span>
+                                <span className="font-mono">{gain.toFixed(1)}x</span>
                             </div>
+                            <input 
+                                type="range" min="0.5" max="5.0" step="0.1" 
+                                value={gain} 
+                                onChange={(e) => updateGain(parseFloat(e.target.value))}
+                                className="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                        </div>
+                    )}
 
-                            {/* Controls */}
-                            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                                <div className="flex items-center gap-4 mb-2">
-                                    <span className="font-bold text-sm text-slate-600">麥克風增益 (Sensitivity Gain):</span>
-                                    <input 
-                                        type="range" 
-                                        min="0.5" 
-                                        max="5.0" 
-                                        step="0.1" 
-                                        value={gain} 
-                                        onChange={(e) => updateGain(parseFloat(e.target.value))}
-                                        className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                    <span className="text-sm font-mono bg-slate-100 px-2 py-1 rounded w-12 text-center">{gain}x</span>
+                    {/* 2. Visualizer (Top Part) */}
+                    <div className="flex-none h-48 sm:h-64 relative bg-slate-900 w-full overflow-hidden" ref={containerRef}>
+                        <canvas ref={canvasRef} className="w-full h-full block" />
+                        
+                        {/* Overlay Stats */}
+                        <div className="absolute top-2 left-3 right-3 flex justify-between items-start pointer-events-none">
+                            <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded text-xs text-slate-300 font-mono">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>
+                                    {peakFreq} Hz
                                 </div>
-                                <p className="text-xs text-slate-500 mt-2">
-                                    <Info size={12} className="inline mr-1"/>
-                                    若波形太小請增加增益。若出現削波(Clipping)請降低增益。
+                            </div>
+                            <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded text-xs text-slate-300 font-mono">
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full inline-block ${decibels > -30 ? 'bg-red-500' : 'bg-green-400'}`}></span>
+                                    {decibels} dB
+                                </div>
+                            </div>
+                        </div>
+
+                        {!isAnalyzing && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
+                                <p className="text-white/80 text-sm flex items-center gap-2 border border-white/20 px-3 py-1.5 rounded-full">
+                                    <Mic size={14} /> 請點擊右上角「開始」
                                 </p>
                             </div>
+                        )}
+                    </div>
+
+                    {/* 3. Heatmap Grid (Bottom Part - Fills remaining space) */}
+                    <div className="flex-1 flex flex-col bg-white rounded-t-2xl -mt-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-0 overflow-hidden relative">
+                        {/* Toolbar */}
+                        <div className="flex-none px-5 py-3 border-b border-slate-100 flex justify-between items-center">
+                            <h2 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                <MapPin size={16} className="text-rose-500" />
+                                異音定位 (C-Cover)
+                            </h2>
+                            <button onClick={clearGrid} className="text-slate-400 p-1.5 hover:bg-slate-50 rounded-full transition-colors" title="重置">
+                                <RefreshCcw size={16} />
+                            </button>
                         </div>
 
-                        {/* Right Panel: Manual Heatmap */}
-                        <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
-                            <div className="flex justify-between items-center mb-4">
-                                <div>
-                                    <h2 className="font-bold text-lg flex items-center gap-2">
-                                        <MapPin className="text-red-500" />
-                                        異音熱力定位圖 (C-Cover View)
-                                    </h2>
-                                    <p className="text-xs text-slate-500">將麥克風移至對應位置後，點擊方格記錄數值</p>
-                                </div>
-                                <button 
-                                    onClick={clearGrid}
-                                    className="flex items-center gap-1 text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
-                                >
-                                    <RefreshCcw size={14} /> 重置
-                                </button>
-                            </div>
-
-                            {/* Laptop Grid Representation */}
-                            <div className="flex-1 relative flex items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-300 p-8">
-                                {/* Outline of laptop */}
-                                <div className="w-full max-w-md aspect-[4/3] grid grid-cols-3 grid-rows-4 gap-2 relative">
-                                    
-                                    {/* Labels for guidance */}
-                                    <div className="absolute -left-8 top-0 bottom-0 flex flex-col justify-between py-6 text-xs text-slate-400 font-mono">
-                                        <span>Screen Hinge</span>
-                                        <span>Keyboard Top</span>
-                                        <span>Keyboard Bot</span>
-                                        <span>Palmrest</span>
-                                    </div>
-
-                                    {gridData.map((cell, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => recordPoint(idx)}
-                                            className={`relative rounded-lg transition-all duration-200 flex flex-col items-center justify-center p-2 group ${getCellColor(cell?.intensity)}`}
-                                        >
+                        {/* Grid Area */}
+                        <div className="flex-1 p-3 overflow-y-auto no-scrollbar">
+                            <div className="h-full w-full max-w-md mx-auto grid grid-cols-3 grid-rows-4 gap-2 pb-safe">
+                                {gridData.map((cell, idx) => (
+                                    <div key={idx} onClick={() => recordPoint(idx)} className="w-full h-full min-h-[60px]">
+                                        <div className={getCellStyles(cell)}>
                                             {cell ? (
                                                 <>
-                                                    <span className="font-bold text-slate-800 text-lg">{cell.db.toFixed(0)}</span>
-                                                    <span className="text-[10px] text-slate-600">{cell.freq} Hz</span>
+                                                    <span className="text-xl font-bold leading-none">{cell.db.toFixed(0)}</span>
+                                                    <span className="text-[10px] opacity-75 mt-1">{cell.freq} Hz</span>
                                                 </>
                                             ) : (
-                                                <Mic size={24} className="text-slate-300 group-hover:text-blue-400 transition-colors" />
+                                                <span className="text-slate-300 text-xs font-mono opacity-50">
+                                                    {idx < 3 ? 'HINGE' : idx < 6 ? 'TOP' : idx < 9 ? 'MID' : 'PALM'}
+                                                </span>
                                             )}
-                                            
-                                            {/* Hover Tooltip */}
-                                            <div className="absolute -top-8 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
-                                                {idx < 3 ? "螢幕轉軸/散熱孔" : idx < 6 ? "鍵盤上半部/CPU" : idx < 9 ? "鍵盤下半部" : "手托/觸控板/電池"}區
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-center text-slate-500">
-                                <div className="flex items-center justify-center gap-1"><div className="w-3 h-3 bg-green-200 rounded"></div> 安全/低噪音</div>
-                                <div className="flex items-center justify-center gap-1"><div className="w-3 h-3 bg-yellow-200 rounded"></div> 疑似異音</div>
-                                <div className="flex items-center justify-center gap-1"><div className="w-3 h-3 bg-red-300 rounded"></div> 高噪音熱點</div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
+                        
+                        {/* Safe area padding for iPhone Home Indicator */}
+                        <div className="h-safe-bottom bg-white w-full"></div>
                     </div>
                 </div>
             );
