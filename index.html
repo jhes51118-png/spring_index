@@ -54,7 +54,7 @@
         const LaptopNoiseAnalyzer = () => {
             // General State
             const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [activeTab, setActiveTab] = useState('spectrum'); // 'spectrum' or 'heatmap'
+            const [activeTab, setActiveTab] = useState('spectrum'); 
             const [decibels, setDecibels] = useState(-100);
             const [peakFreq, setPeakFreq] = useState(0);
             const [gain, setGain] = useState(2.0);
@@ -62,7 +62,8 @@
             
             // Max Hold State
             const [maxHold, setMaxHold] = useState(false);
-            const [maxRecordedDb, setMaxRecordedDb] = useState(-100); // Track max dB in hold period
+            const [maxRecordedDb, setMaxRecordedDb] = useState(-100);
+            const [isMaxFlashing, setIsMaxFlashing] = useState(false); // New: Controls flash effect
 
             // Heatmap State
             const [gridData, setGridData] = useState(Array(12).fill(null));
@@ -75,6 +76,10 @@
             const filterNodeRef = useRef(null);
             const gainNodeRef = useRef(null);
             
+            // Refs for loop state (Solving Stale Closure)
+            const maxHoldRef = useRef(false);
+            const maxDbRef = useRef(-100);
+            
             // Canvas Refs
             const spectrumCanvasRef = useRef(null);
             const spectrogramCanvasRef = useRef(null);
@@ -83,13 +88,20 @@
             // Data Refs
             const maxHoldDataRef = useRef(new Uint8Array(512));
             
+            // Sync maxHold state to ref for the animation loop
+            useEffect(() => {
+                maxHoldRef.current = maxHold;
+                if (!maxHold) {
+                    resetMaxHold();
+                }
+            }, [maxHold]);
+
             // --- Helper: Resize Canvas ---
             const handleResize = useCallback(() => {
                 if (activeTab === 'spectrum' && containerRef.current && spectrumCanvasRef.current && spectrogramCanvasRef.current) {
                     const w = containerRef.current.clientWidth;
                     const totalH = containerRef.current.clientHeight;
                     
-                    // Prevent zero height errors
                     if (totalH === 0) return;
 
                     spectrumCanvasRef.current.width = w;
@@ -98,7 +110,6 @@
                     spectrogramCanvasRef.current.width = w;
                     spectrogramCanvasRef.current.height = Math.floor(totalH * 0.6);
                     
-                    // Clear Spectrogram background on resize to prevent transparency issues
                     const ctx = spectrogramCanvasRef.current.getContext('2d');
                     ctx.fillStyle = '#0f172a';
                     ctx.fillRect(0, 0, w, totalH * 0.6);
@@ -107,11 +118,10 @@
 
             useEffect(() => {
                 window.addEventListener('resize', handleResize);
-                setTimeout(handleResize, 100); // Initial layout
+                setTimeout(handleResize, 100);
                 return () => window.removeEventListener('resize', handleResize);
             }, [handleResize]);
 
-            // Re-trigger resize when switching to spectrum tab
             useEffect(() => {
                 if (activeTab === 'spectrum') {
                     requestAnimationFrame(handleResize);
@@ -134,9 +144,11 @@
                     analyser.smoothingTimeConstant = 0.2; 
                     analyserRef.current = analyser;
                     
-                    // Reset Max Hold
+                    // Reset Max Hold Stats
                     maxHoldDataRef.current = new Uint8Array(analyser.frequencyBinCount);
                     setMaxRecordedDb(-100);
+                    maxDbRef.current = -100; // Reset loop ref
+                    setIsMaxFlashing(false);
 
                     const filter = ctx.createBiquadFilter();
                     filter.type = 'highpass';
@@ -180,7 +192,9 @@
                 if (analyserRef.current) {
                     maxHoldDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
                 }
-                setMaxRecordedDb(-100); // Reset max dB display
+                setMaxRecordedDb(-100);
+                maxDbRef.current = -100; // Important: reset the comparison ref
+                setIsMaxFlashing(false);
             };
 
             const updateGain = (val) => {
@@ -195,7 +209,6 @@
                     return;
                 }
                 const newGrid = [...gridData];
-                // Intensity scaling: arbitrary mapping for visualization
                 let intensity = (decibels + 60) * 2; 
                 intensity = Math.max(0, Math.min(100, intensity));
 
@@ -227,16 +240,16 @@
                 const dataArray = new Uint8Array(bufferLength);
                 analyserRef.current.getByteFrequencyData(dataArray);
 
-                // 1. Calculate Stats (Always runs for dB/Freq readings)
                 let maxVal = 0;
                 let maxIndex = 0;
                 let sum = 0;
                 
+                const isMaxHoldOn = maxHoldRef.current; // Use ref for current loop iteration
+
                 for(let i = 0; i < bufferLength; i++) {
                     const v = dataArray[i];
                     
-                    // Update Max Hold Array
-                    if (maxHold && v > maxHoldDataRef.current[i]) {
+                    if (isMaxHoldOn && v > maxHoldDataRef.current[i]) {
                         maxHoldDataRef.current[i] = v;
                     }
 
@@ -250,17 +263,22 @@
                 const currentDb = Math.max(-100, Math.round(db * 10) / 10);
                 setDecibels(currentDb);
                 
-                // Track Max dB
-                if (maxHold) {
-                    // Using functional update to avoid dependency loop, though in raf it's tricky.
-                    // We use the state setter with callback or a ref for logic, here simple conditional
-                    setMaxRecordedDb(prev => (currentDb > prev ? currentDb : prev));
+                // Track Max dB with Flash logic
+                if (isMaxHoldOn) {
+                    if (currentDb > maxDbRef.current) {
+                        maxDbRef.current = currentDb;
+                        setMaxRecordedDb(currentDb);
+                        
+                        // Trigger Flash
+                        setIsMaxFlashing(true);
+                        setTimeout(() => setIsMaxFlashing(false), 200); // 200ms flash
+                    }
                 }
 
                 const nyquist = audioContextRef.current.sampleRate / 2;
                 setPeakFreq(Math.round(maxIndex * (nyquist / bufferLength)));
 
-                // 2. Draw Spectrum (Only if tab is active)
+                // 2. Draw Spectrum
                 if (activeTab === 'spectrum' && spectrumCanvasRef.current) {
                     const ctx = spectrumCanvasRef.current.getContext('2d');
                     const w = spectrumCanvasRef.current.width;
@@ -294,7 +312,7 @@
                     ctx.stroke();
 
                     // Max Hold Line
-                    if (maxHold) {
+                    if (isMaxHoldOn) {
                         ctx.beginPath();
                         ctx.lineWidth = 1;
                         ctx.strokeStyle = '#facc15'; 
@@ -310,13 +328,12 @@
                     }
                 }
 
-                // 3. Draw Spectrogram (Only if tab is active)
+                // 3. Draw Spectrogram
                 if (activeTab === 'spectrum' && spectrogramCanvasRef.current) {
                     const ctx = spectrogramCanvasRef.current.getContext('2d');
                     const w = spectrogramCanvasRef.current.width;
                     const h = spectrogramCanvasRef.current.height;
 
-                    // Shift Image
                     const tempCanvas = document.createElement('canvas');
                     tempCanvas.width = w;
                     tempCanvas.height = h;
@@ -324,13 +341,11 @@
                     tempCtx.drawImage(spectrogramCanvasRef.current, 0, 0);
                     ctx.drawImage(tempCanvas, 0, 1);
 
-                    // New Line
                     const imgData = ctx.createImageData(w, 1);
                     for (let x = 0; x < w; x++) {
                         const i = Math.floor((x / w) * bufferLength);
                         const value = dataArray[i];
                         
-                        // Color Map
                         const r = value > 150 ? 255 : value * 1.5;
                         const g = value > 200 ? 255 : (value > 100 ? (value-100)*2 : 0);
                         const b = value < 100 ? value * 2 : (255 - (value-100));
@@ -376,7 +391,7 @@
                                 <button onClick={toggleFilter} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-all ${filterEnabled ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
                                     <FilterIcon size={14}/> {filterEnabled ? "濾波 (>200Hz)" : "全頻段"}
                                 </button>
-                                <button onClick={() => { setMaxHold(!maxHold); if(!maxHold) resetMaxHold(); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-all ${maxHold ? 'bg-yellow-900/50 border-yellow-500 text-yellow-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
+                                <button onClick={() => { setMaxHold(!maxHold); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-all ${maxHold ? 'bg-yellow-900/50 border-yellow-500 text-yellow-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
                                     <MaxHoldIcon size={14}/> 峰值: {maxHold ? "ON" : "OFF"}
                                 </button>
                                 {maxHold && <button onClick={resetMaxHold} className="p-1.5 bg-slate-800 border border-slate-600 rounded text-slate-300 active:bg-slate-700"><Trash2 size={14}/></button>}
@@ -406,7 +421,11 @@
                                     Peak: {peakFreq} Hz
                                 </div>
                                 {maxHold && (
-                                    <div className="text-sm font-bold font-mono text-yellow-400 bg-yellow-900/40 px-2 py-0.5 rounded border border-yellow-700 backdrop-blur-sm mt-1 animate-pulse">
+                                    <div className={`text-sm font-bold font-mono px-2 py-0.5 rounded border backdrop-blur-sm mt-1 transition-all duration-100 ${
+                                        isMaxFlashing 
+                                        ? "bg-yellow-400 text-slate-900 border-yellow-400 scale-105 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
+                                        : "text-yellow-400 bg-yellow-900/40 border-yellow-700"
+                                    }`}>
                                         Max: {maxRecordedDb.toFixed(1)} dB
                                     </div>
                                 )}
