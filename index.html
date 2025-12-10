@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>筆電異音分析儀 (Laptop Noise Analyzer)</title>
+    <title>筆電異音分析儀 Pro (Laptop Noise Analyzer)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,364 +18,409 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            /* 防止手機下拉重整干擾 App 操作 */
             overscroll-behavior-y: none; 
+            background-color: #0f172a; /* Dark theme for pro feel */
+            color: #e2e8f0;
         }
-        /* 隱藏捲軸但保持滾動功能 (針對 Webkit) */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Spectrogram Animation Optimization */
+        canvas {
+            image-rendering: pixelated; 
         }
     </style>
 </head>
-<body class="bg-gray-100 text-slate-800 h-[100dvh] w-screen overflow-hidden">
-    <div id="root" class="h-full w-full"></div>
+<body class="h-[100dvh] w-screen overflow-hidden flex flex-col">
+    <div id="root" class="h-full w-full flex flex-col"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // --- Icons Components ---
+        // --- Icons ---
         const IconBase = ({ children, size = 20, className = "" }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width={size} 
-                height={size} 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={className}
-            >
-                {children}
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
         );
-
-        const Activity = (props) => (
-            <IconBase {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></IconBase>
-        );
-        const Play = (props) => (
-            <IconBase {...props}><polygon points="5 3 19 12 5 21 5 3"></polygon></IconBase>
-        );
-        const Square = (props) => (
-            <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></IconBase>
-        );
-        const RefreshCcw = (props) => (
-            <IconBase {...props}>
-                <path d="M3 2v6h6"></path>
-                <path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path>
-                <path d="M21 22v-6h-6"></path>
-                <path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path>
-            </IconBase>
-        );
-        const Mic = (props) => (
-            <IconBase {...props}>
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-            </IconBase>
-        );
-        const MapPin = (props) => (
-            <IconBase {...props}>
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
-            </IconBase>
-        );
-        const Settings = (props) => (
-            <IconBase {...props}>
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </IconBase>
-        );
+        const Activity = (p) => <IconBase {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></IconBase>;
+        const Play = (p) => <IconBase {...p}><polygon points="5 3 19 12 5 21 5 3"></polygon></IconBase>;
+        const Square = (p) => <IconBase {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></IconBase>;
+        const FilterIcon = (p) => <IconBase {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></IconBase>;
+        const Trash2 = (p) => <IconBase {...p}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></IconBase>;
+        const MaxHoldIcon = (p) => <IconBase {...p}><path d="M12 3v18"/><path d="M5 9l7-6 7 6"/><path d="M5 15l7 6 7-6"/></IconBase>; // Custom simplistic arrow
 
         // --- Main Component ---
         const LaptopNoiseAnalyzer = () => {
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [decibels, setDecibels] = useState(-100);
             const [peakFreq, setPeakFreq] = useState(0);
-            const [gain, setGain] = useState(1.5);
-            const [showSettings, setShowSettings] = useState(false);
+            const [gain, setGain] = useState(2.0); // Higher default gain for subtle mechanical noises
+            const [filterEnabled, setFilterEnabled] = useState(true); // Default High Pass ON to filter fan hum
+            const [maxHold, setMaxHold] = useState(false); // Max Hold Mode
             
-            // Heatmap state: 3x4 grid
-            const [gridData, setGridData] = useState(Array(12).fill(null));
-            
+            // Audio Refs
             const audioContextRef = useRef(null);
             const analyserRef = useRef(null);
             const rafIdRef = useRef(null);
-            const canvasRef = useRef(null);
-            const containerRef = useRef(null);
+            const sourceRef = useRef(null);
+            const filterNodeRef = useRef(null);
             const gainNodeRef = useRef(null);
+            
+            // Canvas Refs
+            const spectrumCanvasRef = useRef(null);
+            const spectrogramCanvasRef = useRef(null);
+            const containerRef = useRef(null);
 
-            // RWD Canvas Logic
-            useEffect(() => {
-                const handleResize = () => {
-                    if (canvasRef.current && containerRef.current) {
-                        // Match canvas internal resolution to CSS size for crisp lines
-                        canvasRef.current.width = containerRef.current.clientWidth;
-                        canvasRef.current.height = containerRef.current.clientHeight;
-                    }
-                };
-                
-                window.addEventListener('resize', handleResize);
-                handleResize(); // Init
-                
-                return () => window.removeEventListener('resize', handleResize);
+            // Data Refs for Max Hold
+            const maxHoldDataRef = useRef(new Uint8Array(512)); // Half of FFT size (1024)
+
+            // Layout Resize Logic
+            const handleResize = useCallback(() => {
+                if (containerRef.current && spectrumCanvasRef.current && spectrogramCanvasRef.current) {
+                    const w = containerRef.current.clientWidth;
+                    // Allocate 40% height to spectrum, 60% to spectrogram
+                    const totalH = containerRef.current.clientHeight;
+                    
+                    spectrumCanvasRef.current.width = w;
+                    spectrumCanvasRef.current.height = Math.floor(totalH * 0.4);
+                    
+                    spectrogramCanvasRef.current.width = w;
+                    spectrogramCanvasRef.current.height = Math.floor(totalH * 0.6);
+                    
+                    // Clear Spectrogram on resize
+                    const ctx = spectrogramCanvasRef.current.getContext('2d');
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(0, 0, w, totalH * 0.6);
+                }
             }, []);
 
+            useEffect(() => {
+                window.addEventListener('resize', handleResize);
+                // Delay slightly to ensure DOM is ready
+                setTimeout(handleResize, 100);
+                return () => window.removeEventListener('resize', handleResize);
+            }, [handleResize]);
+
+            // Audio Pipeline Setup
             const startAnalysis = async () => {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { 
+                            echoCancellation: false, // Critical for raw measurement
+                            noiseSuppression: false, // Critical: don't let phone remove the noise we want to find!
+                            autoGainControl: false 
+                        } 
+                    });
                     
-                    const analyser = audioContextRef.current.createAnalyser();
-                    analyser.fftSize = 1024; // Smaller FFT for faster reaction on mobile
-                    analyser.smoothingTimeConstant = 0.8;
-                    analyserRef.current = analyser;
+                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                    const ctx = audioContextRef.current;
 
-                    const gainNode = audioContextRef.current.createGain();
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 1024; // Good balance for mobile
+                    analyser.smoothingTimeConstant = 0.2; // Fast response for clicks
+                    analyserRef.current = analyser;
+                    
+                    // Reset Max Hold Data
+                    maxHoldDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+                    // Filter Node (High Pass to remove 60Hz hum / steady fan drone)
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.value = filterEnabled ? 200 : 0; // Cut below 200Hz
+                    filterNodeRef.current = filter;
+
+                    const gainNode = ctx.createGain();
                     gainNode.gain.value = gain;
                     gainNodeRef.current = gainNode;
 
-                    const source = audioContextRef.current.createMediaStreamSource(stream);
-                    source.connect(gainNode);
+                    const source = ctx.createMediaStreamSource(stream);
+                    sourceRef.current = source;
+
+                    // Connect: Source -> Filter -> Gain -> Analyser
+                    source.connect(filter);
+                    filter.connect(gainNode);
                     gainNode.connect(analyser);
                     
                     setIsAnalyzing(true);
-                    drawSpectrum();
+                    draw();
                 } catch (err) {
-                    console.error("Mic Error:", err);
-                    alert("無法存取麥克風。請確認：\n1. 瀏覽器權限已允許\n2. 使用 HTTPS 或 Localhost\n3. 手機未靜音");
+                    console.error(err);
+                    alert("麥克風存取失敗。請確保權限已開啟，並使用 HTTPS。");
                 }
             };
 
             const stopAnalysis = () => {
-                if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-                    audioContextRef.current.close();
-                }
-                if (rafIdRef.current) {
-                    cancelAnimationFrame(rafIdRef.current);
-                }
+                if (audioContextRef.current) audioContextRef.current.close();
+                if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
                 setIsAnalyzing(false);
-                setDecibels(-100);
-                setPeakFreq(0);
+            };
+
+            const toggleFilter = () => {
+                const newState = !filterEnabled;
+                setFilterEnabled(newState);
+                if (filterNodeRef.current && audioContextRef.current) {
+                     // Ramp value to avoid click
+                    filterNodeRef.current.frequency.setTargetAtTime(newState ? 200 : 0, audioContextRef.current.currentTime, 0.1);
+                }
+            };
+
+            const resetMaxHold = () => {
+                if (analyserRef.current) {
+                    maxHoldDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+                }
             };
 
             const updateGain = (val) => {
                 setGain(val);
-                if (gainNodeRef.current) {
-                    gainNodeRef.current.gain.value = val;
-                }
+                if (gainNodeRef.current) gainNodeRef.current.gain.value = val;
             };
 
-            const drawSpectrum = () => {
-                const canvas = canvasRef.current;
-                if (!canvas || !analyserRef.current) return;
-
-                const ctx = canvas.getContext('2d');
-                const width = canvas.width;
-                const height = canvas.height;
+            // Drawing Loop
+            const draw = () => {
+                if (!analyserRef.current) return;
+                
                 const bufferLength = analyserRef.current.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
-                
                 analyserRef.current.getByteFrequencyData(dataArray);
 
-                // Background
-                ctx.fillStyle = '#0f172a'; // Darker slate
-                ctx.fillRect(0, 0, width, height);
+                // --- 1. Spectrum (Top Canvas) ---
+                const specCanvas = spectrumCanvasRef.current;
+                if (specCanvas) {
+                    const ctx = specCanvas.getContext('2d');
+                    const w = specCanvas.width;
+                    const h = specCanvas.height;
 
-                // Stats Calculation
-                let maxVal = -Infinity;
-                let maxIndex = 0;
-                let sum = 0;
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(0, 0, w, h);
 
-                // Drawing settings
-                const barWidth = (width / bufferLength) * 2.0; 
-                let x = 0;
-
-                for (let i = 0; i < bufferLength; i++) {
-                    const v = dataArray[i];
-                    
-                    if (v > maxVal) {
-                        maxVal = v;
-                        maxIndex = i;
+                    // Draw Grid
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    // Draw horizontal dB lines (approx)
+                    for(let i=1; i<4; i++) {
+                        let y = h * (i/4);
+                        ctx.moveTo(0, y);
+                        ctx.lineTo(w, y);
                     }
-                    sum += v * v;
+                    ctx.stroke();
 
-                    const percent = v / 255;
-                    const barHeight = height * percent;
+                    // Calculate Physics
+                    let maxVal = 0;
+                    let maxIndex = 0;
+                    let sum = 0;
                     
-                    // Gradient-like coloring
-                    const hue = 200 + (i / bufferLength) * 160; // Blue to Red range
-                    ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#38bdf8'; // Sky blue for real-time
+
+                    const sliceWidth = w * 1.0 / bufferLength;
+                    let x = 0;
+
+                    for(let i = 0; i < bufferLength; i++) {
+                        const v = dataArray[i];
+                        
+                        // Max Hold Logic
+                        if (maxHold) {
+                            if (v > maxHoldDataRef.current[i]) {
+                                maxHoldDataRef.current[i] = v;
+                            }
+                        } else {
+                            // If max hold is off, we still track it but decay it? 
+                            // Or just don't display. For this tool, we only update if mode is on.
+                        }
+
+                        // Stats
+                        if (v > maxVal) { maxVal = v; maxIndex = i; }
+                        sum += v * v;
+
+                        const y = h - (v / 255.0 * h);
+                        if(i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                        x += sliceWidth;
+                    }
+                    ctx.stroke();
+
+                    // Draw Max Hold Line (Yellow)
+                    if (maxHold) {
+                        ctx.beginPath();
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#facc15'; // Yellow
+                        ctx.setLineDash([2, 2]); // Dashed line
+                        x = 0;
+                        for(let i = 0; i < bufferLength; i++) {
+                            const v = maxHoldDataRef.current[i];
+                            const y = h - (v / 255.0 * h);
+                            if(i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                            x += sliceWidth;
+                        }
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Update UI Numbers
+                    const rms = Math.sqrt(sum / bufferLength);
+                    const db = 20 * Math.log10(rms / 255);
+                    setDecibels(Math.max(-100, Math.round(db * 10) / 10));
                     
-                    // Rounded caps looks better on mobile
-                    ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-                    x += barWidth + 0.5;
+                    const nyquist = audioContextRef.current.sampleRate / 2;
+                    setPeakFreq(Math.round(maxIndex * (nyquist / bufferLength)));
                 }
 
-                // Update UI state (Throttled could be better but Raf is OK for this simple app)
-                const rms = Math.sqrt(sum / bufferLength);
-                const db = 20 * Math.log10(rms / 255);
-                setDecibels(Math.max(-100, Math.round(db * 10) / 10)); // 1 decimal
+                // --- 2. Spectrogram (Waterfall - Bottom Canvas) ---
+                const gramCanvas = spectrogramCanvasRef.current;
+                if (gramCanvas) {
+                    const ctx = gramCanvas.getContext('2d');
+                    const w = gramCanvas.width;
+                    const h = gramCanvas.height;
 
-                const nyquist = audioContextRef.current.sampleRate / 2;
-                const frequency = maxIndex * (nyquist / bufferLength);
-                setPeakFreq(Math.round(frequency));
+                    // Move existing image down by 1 pixel
+                    // We use drawImage to shift the canvas
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = w;
+                    tempCanvas.height = h;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(gramCanvas, 0, 0);
 
-                rafIdRef.current = requestAnimationFrame(drawSpectrum);
-            };
+                    // Draw the shifted image back
+                    ctx.drawImage(tempCanvas, 0, 1);
 
-            const recordPoint = (index) => {
-                if (!isAnalyzing) {
-                    alert("請先點擊上方「開始」按鈕");
-                    return;
+                    // Draw the new line at the top (y=0)
+                    const imgData = ctx.createImageData(w, 1);
+                    // We need to map FFT bins (bufferLength) to canvas width (w)
+                    for (let x = 0; x < w; x++) {
+                        // Simple interpolation
+                        const i = Math.floor((x / w) * bufferLength);
+                        const value = dataArray[i];
+                        
+                        // Heatmap Color Map
+                        // 0 (Quiet) -> Black/Blue
+                        // 128 (Mid) -> Purple/Red
+                        // 255 (Loud) -> Yellow/White
+                        
+                        const r = value > 150 ? 255 : value * 1.5;
+                        const g = value > 200 ? 255 : (value > 100 ? (value-100)*2 : 0);
+                        const b = value < 100 ? value * 2 : (255 - (value-100));
+                        
+                        const index = x * 4;
+                        imgData.data[index] = r;     // R
+                        imgData.data[index + 1] = g; // G
+                        imgData.data[index + 2] = b; // B
+                        imgData.data[index + 3] = 255; // Alpha
+                    }
+                    ctx.putImageData(imgData, 0, 0);
                 }
-                
-                const newGrid = [...gridData];
-                // Mobile tuning: slightly more sensitive visualization
-                let intensity = (decibels + 50) * 2.5; 
-                intensity = Math.max(0, Math.min(100, intensity));
 
-                newGrid[index] = {
-                    db: decibels,
-                    freq: peakFreq,
-                    intensity: intensity
-                };
-                setGridData(newGrid);
-            };
-
-            const clearGrid = () => setGridData(Array(12).fill(null));
-
-            const getCellStyles = (cell) => {
-                const base = "relative w-full h-full rounded-xl flex flex-col items-center justify-center transition-all duration-200 active:scale-95 touch-manipulation shadow-sm ";
-                
-                if (!cell) return base + "bg-white border-2 border-dashed border-slate-200 active:border-blue-400 active:bg-blue-50";
-                
-                const { intensity } = cell;
-                if (intensity < 30) return base + "bg-emerald-100 border-2 border-emerald-400 text-emerald-800";
-                if (intensity < 60) return base + "bg-amber-100 border-2 border-amber-400 text-amber-800";
-                return base + "bg-rose-100 border-2 border-rose-500 text-rose-800 animate-pulse";
+                rafIdRef.current = requestAnimationFrame(draw);
             };
 
             return (
-                <div className="flex flex-col h-full bg-slate-50 font-sans select-none">
-                    {/* 1. Header & Controls (Compact) */}
-                    <div className="flex-none bg-white px-4 py-3 shadow-sm flex items-center justify-between z-10">
+                <div className="flex flex-col h-full w-full select-none text-slate-200">
+                    
+                    {/* Header */}
+                    <div className="flex-none bg-slate-900 border-b border-slate-700 p-3 flex justify-between items-center z-10">
                         <div className="flex items-center gap-2">
-                            <div className="bg-blue-600 p-1.5 rounded-lg text-white">
-                                <Activity size={18} />
+                            <Activity className="text-sky-400" size={20}/>
+                            <div>
+                                <h1 className="font-bold text-sm leading-none">機構異音分析 Pro</h1>
+                                <div className="text-[10px] text-slate-400 mt-0.5">Spectrogram & Max Hold</div>
                             </div>
-                            <h1 className="font-bold text-slate-800 text-lg leading-none">
-                                機構異音分析
-                                <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Mobile Analyzer</span>
-                            </h1>
                         </div>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => setShowSettings(!showSettings)}
-                                className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-slate-100 text-slate-800' : 'text-slate-400'}`}
-                            >
-                                <Settings size={20} />
-                            </button>
-                            {!isAnalyzing ? (
-                                <button onClick={startAnalysis} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-blue-200 shadow-md active:bg-blue-700 font-bold text-sm">
-                                    <Play size={16} /> 開始
+                        <div className="flex items-center gap-2">
+                             {!isAnalyzing ? (
+                                <button onClick={startAnalysis} className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors">
+                                    <Play size={16}/> 開始量測
                                 </button>
-                            ) : (
-                                <button onClick={stopAnalysis} className="flex items-center gap-1 px-4 py-2 bg-rose-500 text-white rounded-lg shadow-rose-200 shadow-md active:bg-rose-600 font-bold text-sm">
-                                    <Square size={16} /> 停止
+                             ) : (
+                                <button onClick={stopAnalysis} className="flex items-center gap-1 bg-rose-600 hover:bg-rose-500 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors">
+                                    <Square size={16}/> 停止
                                 </button>
-                            )}
+                             )}
                         </div>
                     </div>
 
-                    {/* Gain Setting (Collapsible) */}
-                    {showSettings && (
-                        <div className="flex-none bg-slate-100 px-4 py-3 border-b border-slate-200 animate-fade-in">
-                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                                <span>麥克風靈敏度 (Gain)</span>
-                                <span className="font-mono">{gain.toFixed(1)}x</span>
-                            </div>
+                    {/* Tool Bar */}
+                    <div className="flex-none bg-slate-800 p-2 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar border-b border-slate-700">
+                        
+                        {/* Filter Toggle */}
+                        <button 
+                            onClick={toggleFilter}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border ${filterEnabled ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400' : 'bg-slate-700 border-slate-600 text-slate-400'}`}
+                        >
+                            <FilterIcon size={14}/>
+                            {filterEnabled ? "濾波 (>200Hz)" : "全頻段 (Off)"}
+                        </button>
+
+                        {/* Max Hold Toggle */}
+                        <button 
+                            onClick={() => { setMaxHold(!maxHold); if(!maxHold) resetMaxHold(); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border ${maxHold ? 'bg-yellow-900/50 border-yellow-500 text-yellow-400' : 'bg-slate-700 border-slate-600 text-slate-400'}`}
+                        >
+                            <MaxHoldIcon size={14}/>
+                            峰值保持: {maxHold ? "ON" : "OFF"}
+                        </button>
+
+                         {/* Clear Max */}
+                         {maxHold && (
+                             <button onClick={resetMaxHold} className="p-1.5 bg-slate-700 rounded text-slate-300">
+                                 <Trash2 size={14}/>
+                             </button>
+                         )}
+
+                        {/* Gain Slider */}
+                        <div className="flex items-center gap-2 ml-auto bg-slate-700/50 px-2 py-1 rounded">
+                            <span className="text-[10px] font-mono text-slate-400">GAIN {gain.toFixed(1)}x</span>
                             <input 
-                                type="range" min="0.5" max="5.0" step="0.1" 
+                                type="range" min="0.5" max="10.0" step="0.5" 
                                 value={gain} 
                                 onChange={(e) => updateGain(parseFloat(e.target.value))}
-                                className="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                className="w-16 h-1 bg-slate-600 appearance-none rounded cursor-pointer accent-sky-400"
                             />
                         </div>
-                    )}
-
-                    {/* 2. Visualizer (Top Part) */}
-                    <div className="flex-none h-48 sm:h-64 relative bg-slate-900 w-full overflow-hidden" ref={containerRef}>
-                        <canvas ref={canvasRef} className="w-full h-full block" />
-                        
-                        {/* Overlay Stats */}
-                        <div className="absolute top-2 left-3 right-3 flex justify-between items-start pointer-events-none">
-                            <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded text-xs text-slate-300 font-mono">
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>
-                                    {peakFreq} Hz
-                                </div>
-                            </div>
-                            <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded text-xs text-slate-300 font-mono">
-                                <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full inline-block ${decibels > -30 ? 'bg-red-500' : 'bg-green-400'}`}></span>
-                                    {decibels} dB
-                                </div>
-                            </div>
-                        </div>
-
-                        {!isAnalyzing && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
-                                <p className="text-white/80 text-sm flex items-center gap-2 border border-white/20 px-3 py-1.5 rounded-full">
-                                    <Mic size={14} /> 請點擊右上角「開始」
-                                </p>
-                            </div>
-                        )}
                     </div>
 
-                    {/* 3. Heatmap Grid (Bottom Part - Fills remaining space) */}
-                    <div className="flex-1 flex flex-col bg-white rounded-t-2xl -mt-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-0 overflow-hidden relative">
-                        {/* Toolbar */}
-                        <div className="flex-none px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-                            <h2 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                                <MapPin size={16} className="text-rose-500" />
-                                異音定位 (C-Cover)
-                            </h2>
-                            <button onClick={clearGrid} className="text-slate-400 p-1.5 hover:bg-slate-50 rounded-full transition-colors" title="重置">
-                                <RefreshCcw size={16} />
-                            </button>
+                    {/* Main Visualization Area */}
+                    <div ref={containerRef} className="flex-1 relative bg-slate-950 w-full overflow-hidden">
+                        
+                        {/* 1. Spectrum Canvas */}
+                        <canvas ref={spectrumCanvasRef} className="block w-full" />
+                        
+                        {/* Divider */}
+                        <div className="h-[1px] bg-slate-700 w-full"></div>
+
+                        {/* 2. Spectrogram Canvas */}
+                        <canvas ref={spectrogramCanvasRef} className="block w-full" />
+
+                        {/* Overlay Labels */}
+                        <div className="absolute top-2 left-2 text-[10px] font-mono text-sky-400 bg-black/60 px-1 rounded pointer-events-none">
+                            即時頻譜 (Spectrum)
+                        </div>
+                        <div className="absolute bottom-2 left-2 text-[10px] font-mono text-orange-400 bg-black/60 px-1 rounded pointer-events-none">
+                            聲譜瀑布圖 (Spectrogram) - 時間軸 &darr;
                         </div>
 
-                        {/* Grid Area */}
-                        <div className="flex-1 p-3 overflow-y-auto no-scrollbar">
-                            <div className="h-full w-full max-w-md mx-auto grid grid-cols-3 grid-rows-4 gap-2 pb-safe">
-                                {gridData.map((cell, idx) => (
-                                    <div key={idx} onClick={() => recordPoint(idx)} className="w-full h-full min-h-[60px]">
-                                        <div className={getCellStyles(cell)}>
-                                            {cell ? (
-                                                <>
-                                                    <span className="text-xl font-bold leading-none">{cell.db.toFixed(0)}</span>
-                                                    <span className="text-[10px] opacity-75 mt-1">{cell.freq} Hz</span>
-                                                </>
-                                            ) : (
-                                                <span className="text-slate-300 text-xs font-mono opacity-50">
-                                                    {idx < 3 ? 'HINGE' : idx < 6 ? 'TOP' : idx < 9 ? 'MID' : 'PALM'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                        {/* Readouts */}
+                        <div className="absolute top-2 right-2 flex flex-col items-end gap-1 pointer-events-none">
+                            <div className="text-xl font-bold font-mono text-white drop-shadow-md">
+                                {decibels.toFixed(1)} <span className="text-sm text-slate-400">dB</span>
+                            </div>
+                            <div className="text-xs font-mono text-sky-300 bg-sky-900/30 px-1 rounded">
+                                Peak: {peakFreq} Hz
                             </div>
                         </div>
                         
-                        {/* Safe area padding for iPhone Home Indicator */}
-                        <div className="h-safe-bottom bg-white w-full"></div>
+                        {!isAnalyzing && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-20">
+                                <div className="text-center p-6 max-w-xs">
+                                    <p className="text-white font-bold mb-2">準備開始量測</p>
+                                    <ul className="text-xs text-slate-300 text-left list-disc pl-4 space-y-1">
+                                        <li><span className="text-yellow-400">敲擊音 (Click):</span> 開啟 Max Hold，執行動作，觀察黃線峰值。</li>
+                                        <li><span className="text-orange-400">開合異音 (Hinge):</span> 觀察下方瀑布圖的連續線條。</li>
+                                        <li><span className="text-emerald-400">沾膠音 (Sticky):</span> 使用濾波模式，尋找中低頻的短暫亮點。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
