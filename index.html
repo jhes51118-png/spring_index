@@ -2,512 +2,380 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>筆電異音分析儀 Pro (Laptop Noise Analyzer)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>史努比漫畫風宜蘭導覽</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
+    <!-- 引入 React 和 ReactDOM (核心庫) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel for JSX -->
+    <!-- 引入 Babel 用於解析 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 引入 Tailwind CSS (樣式庫) -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            overscroll-behavior-y: none; 
-            background-color: #0f172a; /* Dark theme */
-            color: #e2e8f0;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        canvas {
-            image-rendering: pixelated; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #FFFBEB;
         }
     </style>
 </head>
-<body class="h-[100dvh] w-screen overflow-hidden flex flex-col">
-    <div id="root" class="h-full w-full flex flex-col"></div>
+<body>
+    <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+        const { useState } = React;
 
-        // --- Icons ---
-        const IconBase = ({ children, size = 20, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
+        // --- 內建圖標元件 (解決外部引用導致白屏的問題) ---
+        const IconWrapper = ({ children, size = 24, className = "", fill = "none", stroke = "currentColor", ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+                {children}
+            </svg>
         );
-        const Activity = (p) => <IconBase {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></IconBase>;
-        const Play = (p) => <IconBase {...p}><polygon points="5 3 19 12 5 21 5 3"></polygon></IconBase>;
-        const Square = (p) => <IconBase {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></IconBase>;
-        const FilterIcon = (p) => <IconBase {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></IconBase>;
-        const Trash2 = (p) => <IconBase {...p}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></IconBase>;
-        const MaxHoldIcon = (p) => <IconBase {...p}><path d="M12 3v18"/><path d="M5 9l7-6 7 6"/><path d="M5 15l7 6 7-6"/></IconBase>;
-        const MapPin = (p) => <IconBase {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></IconBase>;
-        const Mic = (p) => <IconBase {...p}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></IconBase>;
-        const RefreshCcw = (p) => <IconBase {...p}><path d="M3 2v6h6"></path><path d="M21 12A9 9 0 0 0 6 5.3L3 8"></path><path d="M21 22v-6h-6"></path><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"></path></IconBase>;
 
-        // --- Main Component ---
-        const LaptopNoiseAnalyzer = () => {
-            // General State
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [activeTab, setActiveTab] = useState('spectrum'); 
-            const [decibels, setDecibels] = useState(-100);
-            const [peakFreq, setPeakFreq] = useState(0);
-            const [gain, setGain] = useState(2.0);
-            const [filterEnabled, setFilterEnabled] = useState(true);
-            
-            // Max Hold State
-            const [maxHold, setMaxHold] = useState(false);
-            const [maxRecordedDb, setMaxRecordedDb] = useState(-100);
-            const [isMaxFlashing, setIsMaxFlashing] = useState(false); // New: Controls flash effect
+        const MapPin = (props) => (
+            <IconWrapper {...props}>
+                <path d="M20 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0Z" />
+                <circle cx="12" cy="10" r="3" />
+            </IconWrapper>
+        );
 
-            // Heatmap State
-            const [gridData, setGridData] = useState(Array(12).fill(null));
-            
-            // Refs
-            const audioContextRef = useRef(null);
-            const analyserRef = useRef(null);
-            const rafIdRef = useRef(null);
-            const sourceRef = useRef(null);
-            const filterNodeRef = useRef(null);
-            const gainNodeRef = useRef(null);
-            
-            // Refs for loop state (Solving Stale Closure)
-            const maxHoldRef = useRef(false);
-            const maxDbRef = useRef(-100);
-            
-            // Canvas Refs
-            const spectrumCanvasRef = useRef(null);
-            const spectrogramCanvasRef = useRef(null);
-            const containerRef = useRef(null);
+        const Navigation = (props) => (
+            <IconWrapper {...props}>
+                <polygon points="3 11 22 2 13 21 11 13 3 11" />
+            </IconWrapper>
+        );
 
-            // Data Refs
-            const maxHoldDataRef = useRef(new Uint8Array(512));
-            
-            // Sync maxHold state to ref for the animation loop
-            useEffect(() => {
-                maxHoldRef.current = maxHold;
-                if (!maxHold) {
-                    resetMaxHold();
-                }
-            }, [maxHold]);
+        const Calendar = (props) => (
+            <IconWrapper {...props}>
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                <line x1="16" x2="16" y1="2" y2="6" />
+                <line x1="8" x2="8" y1="2" y2="6" />
+                <line x1="3" x2="21" y1="10" y2="10" />
+            </IconWrapper>
+        );
 
-            // --- Helper: Resize Canvas ---
-            const handleResize = useCallback(() => {
-                if (activeTab === 'spectrum' && containerRef.current && spectrumCanvasRef.current && spectrogramCanvasRef.current) {
-                    const w = containerRef.current.clientWidth;
-                    const totalH = containerRef.current.clientHeight;
-                    
-                    if (totalH === 0) return;
+        const Star = (props) => (
+            <IconWrapper {...props}>
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </IconWrapper>
+        );
 
-                    spectrumCanvasRef.current.width = w;
-                    spectrumCanvasRef.current.height = Math.floor(totalH * 0.4);
-                    
-                    spectrogramCanvasRef.current.width = w;
-                    spectrogramCanvasRef.current.height = Math.floor(totalH * 0.6);
-                    
-                    const ctx = spectrogramCanvasRef.current.getContext('2d');
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(0, 0, w, totalH * 0.6);
-                }
-            }, [activeTab]);
+        const MessageSquareQuote = (props) => (
+            <IconWrapper {...props}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M8 12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2" />
+                <path d="M16 12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2" />
+            </IconWrapper>
+        );
 
-            useEffect(() => {
-                window.addEventListener('resize', handleResize);
-                setTimeout(handleResize, 100);
-                return () => window.removeEventListener('resize', handleResize);
-            }, [handleResize]);
+        const Quote = (props) => (
+            <IconWrapper {...props}>
+                <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
+                <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
+            </IconWrapper>
+        );
 
-            useEffect(() => {
-                if (activeTab === 'spectrum') {
-                    requestAnimationFrame(handleResize);
-                }
-            }, [activeTab, handleResize]);
+        const Clock = (props) => (
+            <IconWrapper {...props}>
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </IconWrapper>
+        );
 
+        const CheckCircle2 = (props) => (
+            <IconWrapper {...props}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+            </IconWrapper>
+        );
 
-            // --- Audio Logic ---
-            const startAnalysis = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
-                    });
-                    
-                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                    const ctx = audioContextRef.current;
+        // --- 史努比手繪感 SVG 元件 ---
+        const SnoopyIcon = () => (
+            <svg viewBox="0 0 100 100" className="w-16 h-16">
+                <path d="M25,50 C25,25 75,25 75,50 C75,75 25,75 25,50" fill="white" stroke="black" strokeWidth="4" />
+                <path d="M70,45 C85,45 85,75 70,75 Z" fill="black" />
+                <circle cx="55" cy="45" r="3" fill="black" />
+                <circle cx="22" cy="50" r="5" fill="black" />
+            </svg>
+        );
 
-                    const analyser = ctx.createAnalyser();
-                    analyser.fftSize = 1024; 
-                    analyser.smoothingTimeConstant = 0.2; 
-                    analyserRef.current = analyser;
-                    
-                    // Reset Max Hold Stats
-                    maxHoldDataRef.current = new Uint8Array(analyser.frequencyBinCount);
-                    setMaxRecordedDb(-100);
-                    maxDbRef.current = -100; // Reset loop ref
-                    setIsMaxFlashing(false);
+        const WoodstockIcon = () => (
+            <svg viewBox="0 0 100 100" className="w-10 h-10">
+                <path d="M30,70 L70,70 L70,40 Q50,20 30,40 Z" fill="#FBC02D" stroke="black" strokeWidth="4" />
+                <path d="M40,35 V20 M50,30 V15 M60,35 V20" stroke="black" strokeWidth="3" />
+                <circle cx="45" cy="45" r="2" fill="black" />
+            </svg>
+        );
 
-                    const filter = ctx.createBiquadFilter();
-                    filter.type = 'highpass';
-                    filter.frequency.value = filterEnabled ? 200 : 0;
-                    filterNodeRef.current = filter;
+        const App = () => {
+            const [activeDay, setActiveDay] = useState(1);
 
-                    const gainNode = ctx.createGain();
-                    gainNode.gain.value = gain;
-                    gainNodeRef.current = gainNode;
-
-                    const source = ctx.createMediaStreamSource(stream);
-                    sourceRef.current = source;
-
-                    source.connect(filter);
-                    filter.connect(gainNode);
-                    gainNode.connect(analyser);
-                    
-                    setIsAnalyzing(true);
-                    draw();
-                } catch (err) {
-                    console.error(err);
-                    alert("麥克風存取失敗，請確認權限。");
-                }
-            };
-
-            const stopAnalysis = () => {
-                if (audioContextRef.current) audioContextRef.current.close();
-                if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-                setIsAnalyzing(false);
-            };
-
-            const toggleFilter = () => {
-                const newState = !filterEnabled;
-                setFilterEnabled(newState);
-                if (filterNodeRef.current && audioContextRef.current) {
-                    filterNodeRef.current.frequency.setTargetAtTime(newState ? 200 : 0, audioContextRef.current.currentTime, 0.1);
-                }
-            };
-
-            const resetMaxHold = () => {
-                if (analyserRef.current) {
-                    maxHoldDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-                }
-                setMaxRecordedDb(-100);
-                maxDbRef.current = -100; // Important: reset the comparison ref
-                setIsMaxFlashing(false);
-            };
-
-            const updateGain = (val) => {
-                setGain(val);
-                if (gainNodeRef.current) gainNodeRef.current.gain.value = val;
-            };
-
-            // --- Heatmap Logic ---
-            const recordPoint = (index) => {
-                if (!isAnalyzing) {
-                    alert("請先點擊上方「開始量測」");
-                    return;
-                }
-                const newGrid = [...gridData];
-                let intensity = (decibels + 60) * 2; 
-                intensity = Math.max(0, Math.min(100, intensity));
-
-                newGrid[index] = {
-                    db: decibels,
-                    freq: peakFreq,
-                    intensity: intensity
-                };
-                setGridData(newGrid);
-            };
-
-            const clearGrid = () => setGridData(Array(12).fill(null));
-
-            const getCellStyles = (cell) => {
-                const base = "relative w-full h-full rounded-xl flex flex-col items-center justify-center transition-all duration-200 active:scale-95 touch-manipulation shadow-sm ";
-                if (!cell) return base + "bg-slate-800 border-2 border-dashed border-slate-600 active:border-sky-400 active:bg-slate-700";
-                
-                const { intensity } = cell;
-                if (intensity < 30) return base + "bg-emerald-900/80 border-2 border-emerald-500 text-emerald-100";
-                if (intensity < 60) return base + "bg-yellow-900/80 border-2 border-yellow-500 text-yellow-100";
-                return base + "bg-rose-900/80 border-2 border-rose-500 text-rose-100 animate-pulse";
-            };
-
-            // --- Drawing Loop ---
-            const draw = () => {
-                if (!analyserRef.current) return;
-                
-                const bufferLength = analyserRef.current.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-                analyserRef.current.getByteFrequencyData(dataArray);
-
-                let maxVal = 0;
-                let maxIndex = 0;
-                let sum = 0;
-                
-                const isMaxHoldOn = maxHoldRef.current; // Use ref for current loop iteration
-
-                for(let i = 0; i < bufferLength; i++) {
-                    const v = dataArray[i];
-                    
-                    if (isMaxHoldOn && v > maxHoldDataRef.current[i]) {
-                        maxHoldDataRef.current[i] = v;
-                    }
-
-                    if (v > maxVal) { maxVal = v; maxIndex = i; }
-                    sum += v * v;
-                }
-
-                // Update UI Numbers
-                const rms = Math.sqrt(sum / bufferLength);
-                const db = 20 * Math.log10(rms / 255);
-                const currentDb = Math.max(-100, Math.round(db * 10) / 10);
-                setDecibels(currentDb);
-                
-                // Track Max dB with Flash logic
-                if (isMaxHoldOn) {
-                    if (currentDb > maxDbRef.current) {
-                        maxDbRef.current = currentDb;
-                        setMaxRecordedDb(currentDb);
-                        
-                        // Trigger Flash
-                        setIsMaxFlashing(true);
-                        setTimeout(() => setIsMaxFlashing(false), 200); // 200ms flash
-                    }
-                }
-
-                const nyquist = audioContextRef.current.sampleRate / 2;
-                setPeakFreq(Math.round(maxIndex * (nyquist / bufferLength)));
-
-                // 2. Draw Spectrum
-                if (activeTab === 'spectrum' && spectrumCanvasRef.current) {
-                    const ctx = spectrumCanvasRef.current.getContext('2d');
-                    const w = spectrumCanvasRef.current.width;
-                    const h = spectrumCanvasRef.current.height;
-
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(0, 0, w, h);
-
-                    // Grid
-                    ctx.strokeStyle = '#334155';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    for(let i=1; i<4; i++) {
-                        let y = h * (i/4);
-                        ctx.moveTo(0, y);
-                        ctx.lineTo(w, y);
-                    }
-                    ctx.stroke();
-
-                    // Real-time Line
-                    ctx.beginPath();
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = '#38bdf8'; 
-                    const sliceWidth = w * 1.0 / bufferLength;
-                    let x = 0;
-                    for(let i = 0; i < bufferLength; i++) {
-                        const y = h - (dataArray[i] / 255.0 * h);
-                        if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                        x += sliceWidth;
-                    }
-                    ctx.stroke();
-
-                    // Max Hold Line
-                    if (isMaxHoldOn) {
-                        ctx.beginPath();
-                        ctx.lineWidth = 1;
-                        ctx.strokeStyle = '#facc15'; 
-                        ctx.setLineDash([2, 2]);
-                        x = 0;
-                        for(let i = 0; i < bufferLength; i++) {
-                            const y = h - (maxHoldDataRef.current[i] / 255.0 * h);
-                            if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                            x += sliceWidth;
+            const itinerary = {
+                1: {
+                    date: '2026/01/09 (五)',
+                    points: [
+                        {
+                            time: '10:00',
+                            title: '石牌純的中藥行',
+                            location: '台北市北投區石牌路一段',
+                            icon: "🌿", 
+                            rating: 4.9,
+                            reviews: [
+                                "老闆非常親切專業，對藥材解釋很詳細。",
+                                "環境乾淨舒服，沒有傳統老店的壓迫感。",
+                                "這是我遇過服務態度最好的中藥行！",
+                                "藥材品質很好，老闆會針對需求給建議。",
+                                "石牌在地人的私藏好店，大推。"
+                            ],
+                            desc: '彷彿走進漫畫裡的傳統藥舖，聞著藥香集合！',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=石牌純的中藥行'
+                        },
+                        {
+                            time: '11:30',
+                            title: '玉里橋頭臭豆腐',
+                            location: '礁溪店 (礁溪路四段)',
+                            icon: "🍢",
+                            rating: 4.1,
+                            reviews: [
+                                "外皮酥到不可思議，搭配九層塔跟泡菜一絕！",
+                                "礁溪店環境比較寬敞，排隊稍微快一點點。",
+                                "特製辣椒醬是靈魂，一定要加。",
+                                "雖然要等，但那個酥度絕對值得。",
+                                "宜蘭最接近花蓮總店的味道，不用跑遠了。"
+                            ],
+                            desc: '炸得金黃酥脆，連史努比都流口水的漫畫級美食。',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=玉里橋頭臭豆腐-礁溪店'
+                        },
+                        {
+                            time: '12:00',
+                            title: '正好鮮肉小籠湯包',
+                            location: '礁溪仁愛路停車場 (附近)',
+                            icon: "🥟",
+                            rating: 4.0,
+                            reviews: [
+                                "三星蔥味超濃郁，咬下去直接爆汁！",
+                                "皮薄得透光，現點現包現蒸最好吃。",
+                                "假日人很多，建議先去領號碼牌。",
+                                "蔥香與肉鮮比例抓得剛剛好，不用沾醬。",
+                                "礁溪必吃早餐/午餐清單第一名。"
+                            ],
+                            desc: '皮薄餡多的爆漿湯包，蔥香味在嘴裡爆炸！',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=礁溪仁愛路停車場'
+                        },
+                        {
+                            time: '15:00',
+                            title: '冬山康莊民宿',
+                            location: '冬山鄉田園景緻',
+                            icon: "🏡",
+                            rating: 4.7,
+                            reviews: [
+                                "老闆娘超客氣，早餐手作誠意滿分。",
+                                "房間整潔，窗外就是宜蘭的田園綠意。",
+                                "環境清幽安靜，晚上睡得很安穩。",
+                                "CP值極高，很有回家的感覺。",
+                                "空間寬敞適合家人朋友聚會。"
+                            ],
+                            desc: '像是從繪本裡跳出來的田園小屋，今晚住這！',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=冬山康莊民宿'
                         }
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
+                    ]
+                },
+                2: {
+                    date: '2026/01/10 (六)',
+                    points: [
+                        {
+                            time: '10:50',
+                            title: '退房出發',
+                            location: '冬山康莊民宿',
+                            icon: "🛌",
+                            rating: 4.7,
+                            reviews: [
+                                "早晨的風景真的很漂亮，捨不得離開。",
+                                "服務態度始終如一的溫暖。",
+                                "下次來冬山還會想住這裡。",
+                                "整體體驗非常放鬆，適合充電。",
+                                "床鋪很好睡，長輩也讚不絕口。"
+                            ],
+                            desc: '早安！在漫畫般的晨光中醒來，準備出發。',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=冬山康莊民宿'
+                        },
+                        {
+                            time: '11:30',
+                            title: '得意樓烤鴨',
+                            location: '宜蘭市民權新路',
+                            icon: "🦆",
+                            rating: 4.2,
+                            reviews: [
+                                "烤鴨皮脆肉嫩，三吃做法非常有特色。",
+                                "宜蘭在地人的私房聚餐老店。",
+                                "份量很大，CP值比連鎖名店還高。",
+                                "出菜速度快，口味穩定紮實。",
+                                "一定要預約，不然現場排不到！"
+                            ],
+                            desc: '油亮亮的烤鴨大餐，畫下完美的句點。',
+                            navUrl: 'https://www.google.com/maps/search/?api=1&query=得意樓'
+                        }
+                    ]
                 }
-
-                // 3. Draw Spectrogram
-                if (activeTab === 'spectrum' && spectrogramCanvasRef.current) {
-                    const ctx = spectrogramCanvasRef.current.getContext('2d');
-                    const w = spectrogramCanvasRef.current.width;
-                    const h = spectrogramCanvasRef.current.height;
-
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = w;
-                    tempCanvas.height = h;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(spectrogramCanvasRef.current, 0, 0);
-                    ctx.drawImage(tempCanvas, 0, 1);
-
-                    const imgData = ctx.createImageData(w, 1);
-                    for (let x = 0; x < w; x++) {
-                        const i = Math.floor((x / w) * bufferLength);
-                        const value = dataArray[i];
-                        
-                        const r = value > 150 ? 255 : value * 1.5;
-                        const g = value > 200 ? 255 : (value > 100 ? (value-100)*2 : 0);
-                        const b = value < 100 ? value * 2 : (255 - (value-100));
-                        
-                        const idx = x * 4;
-                        imgData.data[idx] = r; imgData.data[idx+1] = g; imgData.data[idx+2] = b; imgData.data[idx+3] = 255;
-                    }
-                    ctx.putImageData(imgData, 0, 0);
-                }
-
-                rafIdRef.current = requestAnimationFrame(draw);
             };
 
             return (
-                <div className="flex flex-col h-full w-full select-none text-slate-200 bg-slate-900">
-                    
-                    {/* 1. Top Header & Controls */}
-                    <div className="flex-none bg-slate-900 border-b border-slate-700 p-3 flex flex-col gap-3 z-20 shadow-md">
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <Activity className="text-sky-400" size={20}/>
+                <div className="min-h-screen bg-[#FFFBEB] text-slate-900 font-sans pb-12 select-none">
+                    {/* 標題欄 */}
+                    <header className="bg-[#E53935] border-b-[6px] border-black pt-10 pb-16 px-6 text-white relative shadow-xl overflow-hidden">
+                        <div className="max-w-md mx-auto flex items-center justify-between relative z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white p-1 rounded-2xl border-4 border-black rotate-[-3deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                    <SnoopyIcon />
+                                </div>
                                 <div>
-                                    <h1 className="font-bold text-sm leading-none">機構異音分析 Pro</h1>
-                                    <div className="text-[10px] text-slate-400 mt-0.5">Dual Mode Analyzer</div>
+                                    <h1 className="text-3xl font-black italic tracking-tighter leading-none stroke-black">COMIC TRIP</h1>
+                                    <p className="text-[10px] font-black mt-2 tracking-[0.2em] bg-black text-white px-2 py-0.5 rounded inline-block uppercase">
+                                        Yilan 2026
+                                    </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                 {!isAnalyzing ? (
-                                    <button onClick={startAnalysis} className="flex items-center gap-1 bg-sky-600 active:bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-sky-900/50 transition-all">
-                                        <Play size={16}/> 開始
-                                    </button>
-                                 ) : (
-                                    <button onClick={stopAnalysis} className="flex items-center gap-1 bg-rose-600 active:bg-rose-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-rose-900/50 transition-all">
-                                        <Square size={16}/> 停止
-                                    </button>
-                                 )}
+                            <div className="animate-bounce">
+                                <WoodstockIcon />
                             </div>
                         </div>
-
-                        {/* Toolbar (Shared) */}
-                        <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-                            <div className="flex gap-2">
-                                <button onClick={toggleFilter} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-all ${filterEnabled ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
-                                    <FilterIcon size={14}/> {filterEnabled ? "濾波 (>200Hz)" : "全頻段"}
-                                </button>
-                                <button onClick={() => { setMaxHold(!maxHold); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-all ${maxHold ? 'bg-yellow-900/50 border-yellow-500 text-yellow-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
-                                    <MaxHoldIcon size={14}/> 峰值: {maxHold ? "ON" : "OFF"}
-                                </button>
-                                {maxHold && <button onClick={resetMaxHold} className="p-1.5 bg-slate-800 border border-slate-600 rounded text-slate-300 active:bg-slate-700"><Trash2 size={14}/></button>}
-                            </div>
-                            <div className="flex items-center gap-2 bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
-                                <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">GAIN {gain.toFixed(1)}x</span>
-                                <input type="range" min="0.5" max="10.0" step="0.5" value={gain} onChange={(e) => updateGain(parseFloat(e.target.value))} className="w-16 h-1 bg-slate-600 appearance-none rounded cursor-pointer accent-sky-400"/>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 2. Main Content Area (Switchable) */}
-                    <div className="flex-1 relative overflow-hidden bg-slate-950">
                         
-                        {/* --- View A: Spectrum Analyzer --- */}
-                        <div className={`absolute inset-0 flex flex-col ${activeTab === 'spectrum' ? 'z-10 visible' : 'z-0 invisible'}`} ref={containerRef}>
-                            <canvas ref={spectrumCanvasRef} className="block w-full flex-none" />
-                            <div className="h-[1px] bg-slate-700 w-full flex-none"></div>
-                            <canvas ref={spectrogramCanvasRef} className="block w-full flex-1" />
-                            
-                            {/* Overlay Stats */}
-                            <div className="absolute top-2 right-2 flex flex-col items-end gap-1 pointer-events-none">
-                                <div className="text-2xl font-bold font-mono text-white drop-shadow-md">
-                                    {decibels.toFixed(1)} <span className="text-sm text-slate-400">dB</span>
-                                </div>
-                                <div className="text-xs font-mono text-sky-300 bg-sky-900/40 px-1.5 py-0.5 rounded border border-sky-800 backdrop-blur-sm">
-                                    Peak: {peakFreq} Hz
-                                </div>
-                                {maxHold && (
-                                    <div className={`text-sm font-bold font-mono px-2 py-0.5 rounded border backdrop-blur-sm mt-1 transition-all duration-100 ${
-                                        isMaxFlashing 
-                                        ? "bg-yellow-400 text-slate-900 border-yellow-400 scale-105 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
-                                        : "text-yellow-400 bg-yellow-900/40 border-yellow-700"
-                                    }`}>
-                                        Max: {maxRecordedDb.toFixed(1)} dB
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Labels */}
-                            <div className="absolute top-2 left-2 text-[10px] font-mono text-sky-400 bg-black/40 px-1 rounded pointer-events-none">即時頻譜</div>
-                            <div className="absolute bottom-2 left-2 text-[10px] font-mono text-orange-400 bg-black/40 px-1 rounded pointer-events-none">瀑布圖 (時間軸)</div>
+                        {/* 漫畫網點裝飾 */}
+                        <div className="absolute inset-0 opacity-10" style={{
+                            backgroundImage: 'radial-gradient(black 1px, transparent 1px)',
+                            backgroundSize: '10px 10px'
+                        }}></div>
+                    </header>
+
+                    {/* 天數切換 */}
+                    <nav className="max-w-md mx-auto -mt-8 px-4 grid grid-cols-2 gap-4 relative z-20">
+                        {[1, 2].map((day) => (
+                            <button 
+                                key={day}
+                                onClick={() => setActiveDay(day)}
+                                className={`py-5 border-[4px] border-black rounded-[2.5rem] font-black text-xl transition-all shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 ${
+                                    activeDay === day ? 'bg-[#FBC02D] -translate-y-1' : 'bg-white text-slate-300'
+                                }`}
+                            >
+                                DAY {day === 1 ? '01' : '02'}
+                            </button>
+                        ))}
+                    </nav>
+
+                    <main className="max-w-md mx-auto mt-12 px-4 space-y-12">
+                        <div className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full w-fit border-2 border-black font-black text-xs shadow-[4px_4px_0px_0px_rgba(251,192,45,1)]">
+                            <Calendar size={14} className="text-[#FBC02D]" />
+                            {itinerary[activeDay].date}
                         </div>
 
-                        {/* --- View B: Heatmap (Grid) --- */}
-                        <div className={`absolute inset-0 flex flex-col p-4 overflow-y-auto no-scrollbar ${activeTab === 'heatmap' ? 'z-10 visible' : 'z-0 invisible'}`}>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                                    <MapPin className="text-rose-500" size={16}/> 異音熱點定位
-                                </h2>
-                                <button onClick={clearGrid} className="text-xs flex items-center gap-1 text-slate-400 bg-slate-800 px-2 py-1 rounded hover:bg-slate-700">
-                                    <RefreshCcw size={12}/> 重置
-                                </button>
-                            </div>
+                        {itinerary[activeDay].points.map((item, index) => (
+                            <div key={index} className="relative group">
+                                {/* 漫畫框 */}
+                                <div className="bg-white border-[4px] border-black rounded-[2.5rem] p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden transition-all">
+                                    
+                                    {/* 裝飾線條 */}
+                                    <div className="absolute top-0 right-0 w-20 h-20 bg-[#E53935] rounded-full -mr-10 -mt-10 border-4 border-black"></div>
 
-                            <div className="w-full max-w-sm mx-auto aspect-[3/4] grid grid-cols-3 grid-rows-4 gap-2">
-                                {gridData.map((cell, idx) => (
-                                    <div key={idx} onClick={() => recordPoint(idx)} className={getCellStyles(cell)}>
-                                        {cell ? (
-                                            <>
-                                                <span className="text-xl font-bold leading-none">{cell.db.toFixed(0)}</span>
-                                                <span className="text-[10px] opacity-75 mt-1">{cell.freq} Hz</span>
-                                            </>
-                                        ) : (
-                                            <div className="flex flex-col items-center opacity-30">
-                                                <Mic size={16}/>
-                                                <span className="text-[9px] font-mono mt-1">
-                                                    {idx < 3 ? 'HINGE' : idx < 6 ? 'TOP' : idx < 9 ? 'MID' : 'PALM'}
-                                                </span>
+                                    {/* 標題與圖示區 */}
+                                    <div className="flex items-start gap-4 mb-5">
+                                        {/* 大圖示框 */}
+                                        <div className="w-16 h-16 bg-slate-100 border-4 border-black rounded-2xl flex items-center justify-center text-4xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex-shrink-0">
+                                            {item.icon}
+                                        </div>
+                                        
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start">
+                                                {/* 手機版時間優化: 加大字體與色塊 */}
+                                                <div className="bg-black text-white px-4 py-1.5 rounded-xl text-lg font-black inline-block mb-2 shadow-[2px_2px_0px_0px_rgba(251,192,45,1)]">
+                                                    {item.time}
+                                                </div>
                                             </div>
-                                        )}
+                                            <h3 className="text-2xl font-black italic tracking-tighter leading-none uppercase">{item.title}</h3>
+                                            <div className="flex items-center gap-1 mt-2">
+                                                {/* 星星評分 */}
+                                                <div className="flex items-center gap-1 bg-[#FBC02D] px-2 py-0.5 border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                                    <Star size={12} fill="black" />
+                                                    <span className="text-xs font-black">{item.rating}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                ))}
+
+                                    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-xs mb-6 px-1">
+                                        <MapPin size={14} className="text-[#E53935]" />
+                                        {item.location}
+                                    </div>
+
+                                    {/* 網友評論 - 漫畫對白格 */}
+                                    <div className="mb-6 relative">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <MessageSquareQuote size={16} className="text-[#E53935]" />
+                                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reviews</span>
+                                        </div>
+                                        <div className="bg-[#F8F9FA] border-2 border-black p-4 rounded-[1.8rem] space-y-2 relative">
+                                            {/* 漫畫對話框小尾巴 */}
+                                            <div className="absolute -top-3 left-8 w-6 h-6 bg-[#F8F9FA] border-t-2 border-l-2 border-black rotate-45 z-10"></div>
+                                            
+                                            {item.reviews.map((rev, i) => (
+                                                <div key={i} className="flex gap-2 items-start">
+                                                    <span className="text-[#FBC02D] text-xs mt-0.5">★</span>
+                                                    <p className="text-[11px] font-bold text-slate-600 leading-tight italic">
+                                                        {rev}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 漫畫描述框 */}
+                                    <div className="bg-[#FFF9C4] border-2 border-black border-dashed p-4 rounded-2xl mb-6 relative">
+                                        <Quote size={20} className="absolute -top-3 left-4 text-black opacity-10" />
+                                        <p className="text-sm font-black text-stone-700 leading-relaxed italic">
+                                            "{item.desc}"
+                                        </p>
+                                    </div>
+
+                                    <a 
+                                        href={item.navUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full flex items-center justify-center gap-3 bg-[#E53935] hover:bg-black text-white font-black py-5 rounded-2xl border-[4px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all"
+                                    >
+                                        <Navigation size={22} fill="white" />
+                                        <span className="text-lg tracking-widest uppercase font-black">一鍵導航</span>
+                                    </a>
+                                </div>
                             </div>
-                            <div className="mt-4 text-center text-xs text-slate-500">
-                                點擊方格以紀錄當前 dB 與頻率
-                            </div>
+                        ))}
+
+                        <div className="mt-16 p-8 bg-black text-white border-[4px] border-black rounded-[3rem] shadow-[10px_10px_0px_0px_rgba(251,192,45,1)] relative overflow-hidden">
+                            <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-[#FBC02D] rounded-full border-4 border-black opacity-30"></div>
+                            <h4 className="font-black text-2xl mb-6 italic tracking-tighter text-[#FBC02D] flex items-center gap-2">
+                                <CheckCircle2 strokeWidth={3} />
+                                NOTE
+                            </h4>
+                            <ul className="space-y-4 font-bold text-sm text-slate-300">
+                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 得意樓烤鴨請務必提前打電話預約。</li>
+                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 小籠湯包請導航至「礁溪仁愛路停車場」。</li>
+                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 保持愉快好心情！</li>
+                            </ul>
                         </div>
+                    </main>
 
-                    </div>
-
-                    {/* 3. Bottom Tabs */}
-                    <div className="flex-none bg-slate-900 border-t border-slate-700 pb-safe">
-                        <div className="flex">
-                            <button 
-                                onClick={() => setActiveTab('spectrum')}
-                                className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold transition-colors ${activeTab === 'spectrum' ? 'text-sky-400 bg-slate-800 border-t-2 border-sky-400' : 'text-slate-500 border-t-2 border-transparent'}`}
-                            >
-                                <Activity size={20} />
-                                頻譜分析
-                            </button>
-                            <div className="w-[1px] bg-slate-800 my-2"></div>
-                            <button 
-                                onClick={() => setActiveTab('heatmap')}
-                                className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold transition-colors ${activeTab === 'heatmap' ? 'text-rose-400 bg-slate-800 border-t-2 border-rose-400' : 'text-slate-500 border-t-2 border-transparent'}`}
-                            >
-                                <MapPin size={20} />
-                                異音定位
-                            </button>
-                        </div>
-                    </div>
-
-                    {!isAnalyzing && (
-                        <div className="absolute inset-0 top-32 bottom-20 flex items-center justify-center pointer-events-none z-30">
-                            <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-600 text-slate-300 text-xs animate-pulse">
-                                請點擊左上角「開始」
-                            </div>
-                        </div>
-                    )}
-
+                    <footer className="mt-24 mb-12 text-center opacity-30">
+                        <div className="h-1 bg-black w-24 mx-auto mb-4 rounded-full"></div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em]">Snoopy Comic Trip 2026</p>
+                    </footer>
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<LaptopNoiseAnalyzer />);
+        root.render(<App />);
     </script>
 </body>
 </html>
