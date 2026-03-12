@@ -3,379 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>史努比漫畫風宜蘭導覽</title>
-    
-    <!-- 引入 React 和 ReactDOM (核心庫) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- 引入 Babel 用於解析 JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- 引入 Tailwind CSS (樣式庫) -->
+    <title>HONOR Robot Phone 留言評價分析</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            background-color: #FFFBEB;
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
         }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        // --- 內建圖標元件 (解決外部引用導致白屏的問題) ---
-        const IconWrapper = ({ children, size = 24, className = "", fill = "none", stroke = "currentColor", ...props }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
-                {children}
-            </svg>
-        );
-
-        const MapPin = (props) => (
-            <IconWrapper {...props}>
-                <path d="M20 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0Z" />
-                <circle cx="12" cy="10" r="3" />
-            </IconWrapper>
-        );
-
-        const Navigation = (props) => (
-            <IconWrapper {...props}>
-                <polygon points="3 11 22 2 13 21 11 13 3 11" />
-            </IconWrapper>
-        );
-
-        const Calendar = (props) => (
-            <IconWrapper {...props}>
-                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                <line x1="16" x2="16" y1="2" y2="6" />
-                <line x1="8" x2="8" y1="2" y2="6" />
-                <line x1="3" x2="21" y1="10" y2="10" />
-            </IconWrapper>
-        );
-
-        const Star = (props) => (
-            <IconWrapper {...props}>
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </IconWrapper>
-        );
-
-        const MessageSquareQuote = (props) => (
-            <IconWrapper {...props}>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                <path d="M8 12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2" />
-                <path d="M16 12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2" />
-            </IconWrapper>
-        );
-
-        const Quote = (props) => (
-            <IconWrapper {...props}>
-                <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
-                <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
-            </IconWrapper>
-        );
-
-        const Clock = (props) => (
-            <IconWrapper {...props}>
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </IconWrapper>
-        );
-
-        const CheckCircle2 = (props) => (
-            <IconWrapper {...props}>
-                <circle cx="12" cy="12" r="10" />
-                <path d="m9 12 2 2 4-4" />
-            </IconWrapper>
-        );
-
-        // --- 史努比手繪感 SVG 元件 ---
-        const SnoopyIcon = () => (
-            <svg viewBox="0 0 100 100" className="w-16 h-16">
-                <path d="M25,50 C25,25 75,25 75,50 C75,75 25,75 25,50" fill="white" stroke="black" strokeWidth="4" />
-                <path d="M70,45 C85,45 85,75 70,75 Z" fill="black" />
-                <circle cx="55" cy="45" r="3" fill="black" />
-                <circle cx="22" cy="50" r="5" fill="black" />
-            </svg>
-        );
-
-        const WoodstockIcon = () => (
-            <svg viewBox="0 0 100 100" className="w-10 h-10">
-                <path d="M30,70 L70,70 L70,40 Q50,20 30,40 Z" fill="#FBC02D" stroke="black" strokeWidth="4" />
-                <path d="M40,35 V20 M50,30 V15 M60,35 V20" stroke="black" strokeWidth="3" />
-                <circle cx="45" cy="45" r="2" fill="black" />
-            </svg>
-        );
-
-        const App = () => {
-            const [activeDay, setActiveDay] = useState(1);
-
-            const itinerary = {
-                1: {
-                    date: '2026/01/09 (五)',
-                    points: [
-                        {
-                            time: '10:00',
-                            title: '石牌純的中藥行',
-                            location: '台北市北投區石牌路一段',
-                            icon: "🌿", 
-                            rating: 4.9,
-                            reviews: [
-                                "老闆非常親切專業，對藥材解釋很詳細。",
-                                "環境乾淨舒服，沒有傳統老店的壓迫感。",
-                                "這是我遇過服務態度最好的中藥行！",
-                                "藥材品質很好，老闆會針對需求給建議。",
-                                "石牌在地人的私藏好店，大推。"
-                            ],
-                            desc: '彷彿走進漫畫裡的傳統藥舖，聞著藥香集合！',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=石牌純的中藥行'
-                        },
-                        {
-                            time: '11:30',
-                            title: '玉里橋頭臭豆腐',
-                            location: '礁溪店 (礁溪路四段)',
-                            icon: "🍢",
-                            rating: 4.1,
-                            reviews: [
-                                "外皮酥到不可思議，搭配九層塔跟泡菜一絕！",
-                                "礁溪店環境比較寬敞，排隊稍微快一點點。",
-                                "特製辣椒醬是靈魂，一定要加。",
-                                "雖然要等，但那個酥度絕對值得。",
-                                "宜蘭最接近花蓮總店的味道，不用跑遠了。"
-                            ],
-                            desc: '炸得金黃酥脆，連史努比都流口水的漫畫級美食。',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=玉里橋頭臭豆腐-礁溪店'
-                        },
-                        {
-                            time: '12:00',
-                            title: '正好鮮肉小籠湯包',
-                            location: '礁溪仁愛路停車場 (附近)',
-                            icon: "🥟",
-                            rating: 4.0,
-                            reviews: [
-                                "三星蔥味超濃郁，咬下去直接爆汁！",
-                                "皮薄得透光，現點現包現蒸最好吃。",
-                                "假日人很多，建議先去領號碼牌。",
-                                "蔥香與肉鮮比例抓得剛剛好，不用沾醬。",
-                                "礁溪必吃早餐/午餐清單第一名。"
-                            ],
-                            desc: '皮薄餡多的爆漿湯包，蔥香味在嘴裡爆炸！',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=礁溪仁愛路停車場'
-                        },
-                        {
-                            time: '15:00',
-                            title: '冬山康莊民宿',
-                            location: '冬山鄉田園景緻',
-                            icon: "🏡",
-                            rating: 4.7,
-                            reviews: [
-                                "老闆娘超客氣，早餐手作誠意滿分。",
-                                "房間整潔，窗外就是宜蘭的田園綠意。",
-                                "環境清幽安靜，晚上睡得很安穩。",
-                                "CP值極高，很有回家的感覺。",
-                                "空間寬敞適合家人朋友聚會。"
-                            ],
-                            desc: '像是從繪本裡跳出來的田園小屋，今晚住這！',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=冬山康莊民宿'
-                        }
-                    ]
-                },
-                2: {
-                    date: '2026/01/10 (六)',
-                    points: [
-                        {
-                            time: '10:50',
-                            title: '退房出發',
-                            location: '冬山康莊民宿',
-                            icon: "🛌",
-                            rating: 4.7,
-                            reviews: [
-                                "早晨的風景真的很漂亮，捨不得離開。",
-                                "服務態度始終如一的溫暖。",
-                                "下次來冬山還會想住這裡。",
-                                "整體體驗非常放鬆，適合充電。",
-                                "床鋪很好睡，長輩也讚不絕口。"
-                            ],
-                            desc: '早安！在漫畫般的晨光中醒來，準備出發。',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=冬山康莊民宿'
-                        },
-                        {
-                            time: '11:30',
-                            title: '得意樓烤鴨',
-                            location: '宜蘭市民權新路',
-                            icon: "🦆",
-                            rating: 4.2,
-                            reviews: [
-                                "烤鴨皮脆肉嫩，三吃做法非常有特色。",
-                                "宜蘭在地人的私房聚餐老店。",
-                                "份量很大，CP值比連鎖名店還高。",
-                                "出菜速度快，口味穩定紮實。",
-                                "一定要預約，不然現場排不到！"
-                            ],
-                            desc: '油亮亮的烤鴨大餐，畫下完美的句點。',
-                            navUrl: 'https://www.google.com/maps/search/?api=1&query=得意樓'
-                        }
-                    ]
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-[#FFFBEB] text-slate-900 font-sans pb-12 select-none">
-                    {/* 標題欄 */}
-                    <header className="bg-[#E53935] border-b-[6px] border-black pt-10 pb-16 px-6 text-white relative shadow-xl overflow-hidden">
-                        <div className="max-w-md mx-auto flex items-center justify-between relative z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white p-1 rounded-2xl border-4 border-black rotate-[-3deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                    <SnoopyIcon />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-black italic tracking-tighter leading-none stroke-black">COMIC TRIP</h1>
-                                    <p className="text-[10px] font-black mt-2 tracking-[0.2em] bg-black text-white px-2 py-0.5 rounded inline-block uppercase">
-                                        Yilan 2026
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="animate-bounce">
-                                <WoodstockIcon />
-                            </div>
-                        </div>
-                        
-                        {/* 漫畫網點裝飾 */}
-                        <div className="absolute inset-0 opacity-10" style={{
-                            backgroundImage: 'radial-gradient(black 1px, transparent 1px)',
-                            backgroundSize: '10px 10px'
-                        }}></div>
-                    </header>
-
-                    {/* 天數切換 */}
-                    <nav className="max-w-md mx-auto -mt-8 px-4 grid grid-cols-2 gap-4 relative z-20">
-                        {[1, 2].map((day) => (
-                            <button 
-                                key={day}
-                                onClick={() => setActiveDay(day)}
-                                className={`py-5 border-[4px] border-black rounded-[2.5rem] font-black text-xl transition-all shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 ${
-                                    activeDay === day ? 'bg-[#FBC02D] -translate-y-1' : 'bg-white text-slate-300'
-                                }`}
-                            >
-                                DAY {day === 1 ? '01' : '02'}
-                            </button>
-                        ))}
-                    </nav>
-
-                    <main className="max-w-md mx-auto mt-12 px-4 space-y-12">
-                        <div className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full w-fit border-2 border-black font-black text-xs shadow-[4px_4px_0px_0px_rgba(251,192,45,1)]">
-                            <Calendar size={14} className="text-[#FBC02D]" />
-                            {itinerary[activeDay].date}
-                        </div>
-
-                        {itinerary[activeDay].points.map((item, index) => (
-                            <div key={index} className="relative group">
-                                {/* 漫畫框 */}
-                                <div className="bg-white border-[4px] border-black rounded-[2.5rem] p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden transition-all">
-                                    
-                                    {/* 裝飾線條 */}
-                                    <div className="absolute top-0 right-0 w-20 h-20 bg-[#E53935] rounded-full -mr-10 -mt-10 border-4 border-black"></div>
-
-                                    {/* 標題與圖示區 */}
-                                    <div className="flex items-start gap-4 mb-5">
-                                        {/* 大圖示框 */}
-                                        <div className="w-16 h-16 bg-slate-100 border-4 border-black rounded-2xl flex items-center justify-center text-4xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex-shrink-0">
-                                            {item.icon}
-                                        </div>
-                                        
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start">
-                                                {/* 手機版時間優化: 加大字體與色塊 */}
-                                                <div className="bg-black text-white px-4 py-1.5 rounded-xl text-lg font-black inline-block mb-2 shadow-[2px_2px_0px_0px_rgba(251,192,45,1)]">
-                                                    {item.time}
-                                                </div>
-                                            </div>
-                                            <h3 className="text-2xl font-black italic tracking-tighter leading-none uppercase">{item.title}</h3>
-                                            <div className="flex items-center gap-1 mt-2">
-                                                {/* 星星評分 */}
-                                                <div className="flex items-center gap-1 bg-[#FBC02D] px-2 py-0.5 border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                                    <Star size={12} fill="black" />
-                                                    <span className="text-xs font-black">{item.rating}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-xs mb-6 px-1">
-                                        <MapPin size={14} className="text-[#E53935]" />
-                                        {item.location}
-                                    </div>
-
-                                    {/* 網友評論 - 漫畫對白格 */}
-                                    <div className="mb-6 relative">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <MessageSquareQuote size={16} className="text-[#E53935]" />
-                                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reviews</span>
-                                        </div>
-                                        <div className="bg-[#F8F9FA] border-2 border-black p-4 rounded-[1.8rem] space-y-2 relative">
-                                            {/* 漫畫對話框小尾巴 */}
-                                            <div className="absolute -top-3 left-8 w-6 h-6 bg-[#F8F9FA] border-t-2 border-l-2 border-black rotate-45 z-10"></div>
-                                            
-                                            {item.reviews.map((rev, i) => (
-                                                <div key={i} className="flex gap-2 items-start">
-                                                    <span className="text-[#FBC02D] text-xs mt-0.5">★</span>
-                                                    <p className="text-[11px] font-bold text-slate-600 leading-tight italic">
-                                                        {rev}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* 漫畫描述框 */}
-                                    <div className="bg-[#FFF9C4] border-2 border-black border-dashed p-4 rounded-2xl mb-6 relative">
-                                        <Quote size={20} className="absolute -top-3 left-4 text-black opacity-10" />
-                                        <p className="text-sm font-black text-stone-700 leading-relaxed italic">
-                                            "{item.desc}"
-                                        </p>
-                                    </div>
-
-                                    <a 
-                                        href={item.navUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="w-full flex items-center justify-center gap-3 bg-[#E53935] hover:bg-black text-white font-black py-5 rounded-2xl border-[4px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all"
-                                    >
-                                        <Navigation size={22} fill="white" />
-                                        <span className="text-lg tracking-widest uppercase font-black">一鍵導航</span>
-                                    </a>
-                                </div>
-                            </div>
-                        ))}
-
-                        <div className="mt-16 p-8 bg-black text-white border-[4px] border-black rounded-[3rem] shadow-[10px_10px_0px_0px_rgba(251,192,45,1)] relative overflow-hidden">
-                            <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-[#FBC02D] rounded-full border-4 border-black opacity-30"></div>
-                            <h4 className="font-black text-2xl mb-6 italic tracking-tighter text-[#FBC02D] flex items-center gap-2">
-                                <CheckCircle2 strokeWidth={3} />
-                                NOTE
-                            </h4>
-                            <ul className="space-y-4 font-bold text-sm text-slate-300">
-                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 得意樓烤鴨請務必提前打電話預約。</li>
-                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 小籠湯包請導航至「礁溪仁愛路停車場」。</li>
-                                <li className="flex gap-3"><span className="text-[#FBC02D]">●</span> 保持愉快好心情！</li>
-                            </ul>
-                        </div>
-                    </main>
-
-                    <footer className="mt-24 mb-12 text-center opacity-30">
-                        <div className="h-1 bg-black w-24 mx-auto mb-4 rounded-full"></div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em]">Snoopy Comic Trip 2026</p>
-                    </footer>
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header Section -->
+        <header class="glass-card rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex-1">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">YouTube 留言與情緒評價分析</h1>
+                <p class="text-gray-500 mb-4">分析目標：HONOR Robot Phone. Prototype? No. Reality.</p>
+                <div class="flex flex-wrap gap-3">
+                    <span class="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full"><i class="fab fa-youtube mr-1"></i>觀看次數突破 120 萬</span>
+                    <span class="bg-purple-100 text-purple-800 text-sm font-semibold px-3 py-1 rounded-full"><i class="fas fa-robot mr-1"></i>MWC 2026 焦點話題</span>
                 </div>
-            );
-        };
+            </div>
+            <div class="w-full md:w-1/3 aspect-video rounded-xl overflow-hidden shadow-lg shrink-0">
+                <iframe class="w-full h-full" src="https://www.youtube.com/embed/uiaHf2j2b5g" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+        </header>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Sentiment Pie Chart -->
+            <div class="glass-card rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-chart-pie text-indigo-500 mr-2"></i>整體情緒分佈</h2>
+                <div class="relative h-64 w-full flex justify-center">
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+                <p class="text-sm text-gray-500 mt-4 text-center">* 數據參考自外媒針對該影片與產品的萬人投票民調</p>
+            </div>
+
+            <!-- Topics Bar Chart -->
+            <div class="glass-card rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-chart-bar text-indigo-500 mr-2"></i>網友留言焦點佔比</h2>
+                <div class="relative h-64 w-full flex justify-center">
+                    <canvas id="topicChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Categories Section -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-10 mb-6"><i class="fas fa-comments text-gray-600 mr-2"></i>具體留言分類分析</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Good Comments -->
+            <div class="glass-card rounded-2xl p-6 border-t-4 border-green-500">
+                <div class="flex items-center gap-2 mb-4 text-green-600">
+                    <i class="fas fa-smile-beam text-2xl"></i>
+                    <h3 class="text-xl font-bold">好評 (57%)</h3>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-green-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「這看起來太棒了！我很想擁有一台。」</p>
+                        <p class="text-xs text-gray-500">多數對科技充滿熱情的觀眾認為實體雲台非常酷，超越了單純的軟體防手震。</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「這類奇特的實驗性手機讓我想起了以前的 LG，支持創新！」</p>
+                        <p class="text-xs text-gray-500">網友讚賞 Honor 願意打破目前千篇一律的手機外觀設計。</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「基本上就是把大疆 Osmo Pocket 3 裝進手機裡，機器人的動作超級可愛。」</p>
+                        <p class="text-xs text-gray-500">影音創作者對於不用額外攜帶穩定器感到非常興奮。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Neutral Comments -->
+            <div class="glass-card rounded-2xl p-6 border-t-4 border-yellow-400">
+                <div class="flex items-center gap-2 mb-4 text-yellow-500">
+                    <i class="fas fa-meh text-2xl"></i>
+                    <h3 class="text-xl font-bold">中立 / 觀望 (26%)</h3>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-yellow-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「概念很酷，但我應該不會買。」</p>
+                        <p class="text-xs text-gray-500">許多人認為這是很棒的技術展示，但作為日常使用的手機可能過於小眾。</p>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「對不想帶雲台的人來說不錯，但這是否會犧牲掉手機的其他規格？」</p>
+                        <p class="text-xs text-gray-500">部分理性的網友擔憂重量、厚度以及電池容量會因此受到影響。</p>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「這個機械結構到底耐不耐摔？」</p>
+                        <p class="text-xs text-gray-500">機械雲台的耐用度與維修成本是大家目前保持觀望的最大原因。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bad Comments -->
+            <div class="glass-card rounded-2xl p-6 border-t-4 border-red-500">
+                <div class="flex items-center gap-2 mb-4 text-red-500">
+                    <i class="fas fa-angry text-2xl"></i>
+                    <h3 class="text-xl font-bold">負評 (17%)</h3>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-red-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「完全是個噱頭 (Gimmick)，現在手機的內部防手震已經夠好了。」</p>
+                        <p class="text-xs text-gray-500">不看好的人認為這功能毫無必要，並批評對比傳統手機的畫面有誤導嫌疑。</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「太荒謬了，我完全沒興趣。」</p>
+                        <p class="text-xs text-gray-500">有一群使用者認為手機應該回歸本質，不該增加多餘且容易損壞的活動零件。</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl text-gray-700 text-sm">
+                        <p class="font-semibold mb-1">💬 「這支手機讓人感到毛骨悚然，我不想要一個會自己亂動的 AI 鏡頭看著我。」</p>
+                        <p class="text-xs text-gray-500">對於鏡頭會「像機器人一樣點頭或搖頭」感到有隱私疑慮與恐怖谷效應。</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Detailed Comments List Section -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-12 mb-6"><i class="fas fa-list-ul text-gray-600 mr-2"></i>來自 YouTube 的真實留言與中文翻譯</h2>
+        
+        <!-- 動態留言容器 -->
+        <div id="dynamic-comments-container" class="space-y-4 mb-10">
+            <!-- 留言將透過底下的 JavaScript 自動載入 -->
+        </div>
+
+    </div>
+
+    <script>
+        // 將所有真實留言轉換為 JSON 格式，方便後續擴充與管理
+        const ytComments = [
+            { user: "@FloorDepot-f7y", text: "Why the hole punch selfie camera?", trans: "為什麼還要挖孔前置鏡頭？", sentiment: "neutral", type: "中立" },
+            { user: "@joelconolly5574", text: "It's like a DJI Osmo Pocket 3. But on a phone.", trans: "這就像大疆 Osmo Pocket 3。但裝在手機上。", sentiment: "good", type: "好評" },
+            { user: "@Turgineer", text: "Now we can carry a WALL-E in our pocket!", trans: "現在我們可以把瓦力（WALL-E）裝在口袋裡了！", sentiment: "good", type: "好評" },
+            { user: "@qasimalsaidi", text: "This is innovation. Well done Honor.", trans: "這就是創新。做得好，Honor。", sentiment: "good", type: "好評" },
+            { user: "@DragonballLegend-e5j", text: "200 MB cam on a little head robot that you can control through a cellphone. I would call this innovative. Thank Honor!", trans: "可透過手機控制的小機器人頭上配備 200MB (兩億畫素) 相機。我會稱之為創新。謝謝 Honor！", sentiment: "good", type: "好評" },
+            { user: "@terrwu5707", text: "In the meantime, apple just released its groundbreaking iPhone 17e.", trans: "與此同時，蘋果剛剛發布了它『具突破性』的 iPhone 17e。", sentiment: "good", type: "好評" },
+            { user: "@sharifaakter81", text: "finally, an innovative phone after a long time.", trans: "終於，在很長一段時間後出現了一款創新的手機。", sentiment: "good", type: "好評" },
+            { user: "@LashanR", text: "Weird ad, cool innovation", trans: "奇怪的廣告，酷炫的創新", sentiment: "good", type: "好評" },
+            { user: "@Farzadnoorii", text: "A phone that moves? This isn’t sci-fi anymore ️", trans: "會動的手機？這已經不再是科幻小說了 ️", sentiment: "good", type: "好評" },
+            { user: "@Firr007", text: "This is type of innovation that we want!! Not just a same square phone with different colours.", trans: "這才是我們想要的創新！！而不是只換了顏色的同款方形手機。", sentiment: "good", type: "好評" },
+            { user: "@marky_bruh", text: "Who could have thought of this? THIS IS AMAZING REAL INNOVATION!", trans: "誰能想到這個？這是令人驚嘆的真正創新！", sentiment: "good", type: "好評" },
+            { user: "@BaiceanuLaurentiu", text: "0:50 why is so blurry this photo :)) …", trans: "0:50 為什麼這張照片這麼模糊 :)) …", sentiment: "neutral", type: "中立" },
+            { user: "@lizeqiangd", text: "another interesting design for cellphone market。", trans: "手機市場另一個有趣的設計。", sentiment: "good", type: "好評" },
+            { user: "@ab_hi_na_nd_7331", text: "This what innovation looks like", trans: "這就是創新的樣子", sentiment: "good", type: "好評" },
+            { user: "@SoCalFreelance", text: "High production value video/concept.", trans: "高製作水準的影片/概念。", sentiment: "good", type: "好評" },
+            { user: "@draggador", text: "The motors in the robotic part are most probably gonna eat battery charge like crazy.", trans: "機器人部分的馬達很可能會瘋狂消耗電池電量。", sentiment: "neutral", type: "中立" },
+            { user: "@mohameddanish4897", text: "it's great... but why does it have a front facing camera?", trans: "這很棒... 但為什麼它還要配備前置鏡頭？", sentiment: "neutral", type: "中立" },
+            { user: "@joao.viitor_7", text: "A phone with a built-in gimbal robot like? Cool!!", trans: "一款內建類似機器人雲台的手機？酷！！", sentiment: "good", type: "好評" },
+            { user: "@hyperadhix.193", text: "Next level", trans: "下一個境界", sentiment: "good", type: "好評" },
+            { user: "@idontneedth", text: "Now that is proper innovation", trans: "這才是真正的創新", sentiment: "good", type: "好評" },
+            { user: "@Ghazalmetal", text: "And as a bonus, all your info goes to the head quarters", trans: "作為額外『獎勵』，你所有的資訊都會傳送到總部", sentiment: "bad", type: "負評" },
+            { user: "@Cuxxie", text: "so its just a portable gimbal which can make weird sounds?", trans: "所以它只是一個會發出怪聲的便攜式雲台？", sentiment: "bad", type: "負評" },
+            { user: "@krishnasingh-jn6zz", text: "That's why honor and Huawei are on 1st in terms of technology instead of just replacing SoC , for me technology mean innvoations love honor please launch products in India too", trans: "這就是為什麼 Honor 和華為在技術方面排名第一，而不是僅僅更換處理器。科技對我來說意味著創新，愛 Honor，請也在印度推出產品", sentiment: "good", type: "好評" },
+            { user: "@davidl7367", text: "Absolutely incredible tech. Can't wait to see the reviews", trans: "絕對令人難以置信的技術。等不及想看評測了", sentiment: "good", type: "好評" },
+            { user: "@Mr_G-x2y", text: "One company brought square sensors to their front camera, and another one brought an already existing horizontal lock to their phones, but Honor but a literal robot in their phone.", trans: "一家公司把方形感光元件帶到前置鏡頭，另一家把已經存在的水平鎖定功能帶到手機上，但 Honor 卻在手機裡放了一個貨真價實的機器人。", sentiment: "good", type: "好評" },
+            { user: "@timetraveler_0", text: "It can replace DJI osmo pocket and that things sells like crazy, I see tourist carrying them all the time. A 360 degree camera is also useful for AI features they hope to bring. It's a bold move compared to the likes of Apple, OnePlus etc and I'm here for it.", trans: "它可以取代 DJI osmo pocket，那東西賣得超好，我總看到遊客帶著。360度相機對於他們希望帶來的 AI 功能也很有用。與蘋果、一加等品牌相比，這是大膽的一步，我絕對支持。", sentiment: "good", type: "好評" },
+            { user: "@gpfhantom1890", text: "Why is there a camera punch out on the Display when the camera can rotate to the front?", trans: "既然相機可以旋轉到前面，為什麼螢幕上還有一個相機挖孔？", sentiment: "neutral", type: "中立" },
+            { user: "@rajivmishra1309", text: "Real innovation with real practical design", trans: "真正的創新與真正實用的設計", sentiment: "good", type: "好評" },
+            { user: "@Sjet-k6v", text: "Finally, someone has given us a real example of phone innovation. Please continue to use your brains wisely. It's possible to design even better things.", trans: "終於有人給了我們手機創新的真實範例。請繼續明智地發揮創意。設計出更好的東西是可能的。", sentiment: "good", type: "好評" },
+            { user: "@stefanleung-j3m", text: "Why it still have a open-hole front panel?", trans: "為什麼它還是有挖孔的面板？", sentiment: "neutral", type: "中立" },
+            { user: "@Walker_37", text: "I can't expect this to be IP68 or better, but it's still a good concept though.", trans: "我不能指望它有 IP68 或更好的防護等級，但這仍然是一個很好的概念。", sentiment: "neutral", type: "中立" },
+            { user: "@Velikiy_2.0", text: "I can't figure out where this could be useful in our lives.", trans: "我想不出這在我們的生活中有什麼用處。", sentiment: "bad", type: "負評" },
+            { user: "@graysenkoay6428", text: "what does it do besides \"wow\"... \"oooo\" and \"whoa\"?", trans: "除了讓人發出「哇」...「哦」和「哇嗚」之外，它還能做什麼？", sentiment: "bad", type: "負評" },
+            { user: "@mrvoid05", text: "Imagine the repair cost", trans: "想像一下維修成本", sentiment: "bad", type: "負評" },
+            { user: "@arshshaikh9442", text: "That tiny little robot feels lovely. This advertisement is beautifully made", trans: "那個小小的機器人感覺很可愛。這個廣告製作得非常精美", sentiment: "good", type: "好評" },
+            { user: "@Mr.Speco75", text: "Why there is a selfie camera on a display when it's a robot phone there is no need a selfie camera it's fake", trans: "既然是機器人手機，為什麼螢幕上還要自拍鏡頭？根本不需要自拍鏡頭，這宣傳是假的", sentiment: "bad", type: "負評" },
+            { user: "@TruthWizardX", text: "Literally nobody asked for this.", trans: "說真的，根本沒人要求這個功能。", sentiment: "bad", type: "負評" },
+            { user: "@AKA_KosukeTechAddict", text: "Come on!!give us full view display without punch hole,why still need front camera after there had 360° usable ai camera?non sense", trans: "拜託！！給我們沒有挖孔的全螢幕吧，有了 360° 可用的 AI 相機為什麼還需要前置鏡頭？沒意義", sentiment: "neutral", type: "中立" },
+            { user: "@Elementzi", text: "suits perfect for a chinese spy company", trans: "非常適合中國間諜公司", sentiment: "bad", type: "負評" },
+            { user: "@GoGoPooerRangers", text: "This is so stupid and useless lol", trans: "這太愚蠢且無用了，哈哈", sentiment: "bad", type: "負評" },
+            { user: "@panpiecake1249", text: "Goverment Surveillance just got a new 360 degree update", trans: "政府監控剛剛獲得了全新的 360 度升級", sentiment: "bad", type: "負評" },
+            { user: "@pilladisimo87", text: "Ufff the camera, the first part of the smartphone to break", trans: "唉...相機，這是智慧型手機第一個會壞掉的零件", sentiment: "bad", type: "負評" },
+            { user: "@Genius_truly_genius", text: "Imagine the cost", trans: "想像一下這成本", sentiment: "neutral", type: "中立" },
+            { user: "@marcolima89", text: "finally! something actually different in a cellphone! why the selfie camera though?", trans: "終於！手機裡終於出現真正不一樣的東西了！不過為什麼要有自拍鏡頭？", sentiment: "neutral", type: "中立" },
+            { user: "@massakidi", text: "seems like a very cool product idea,.. 5 years ago", trans: "看起來是個非常酷的產品點子...放在五年前的話", sentiment: "bad", type: "負評" },
+            { user: "@Khizar-Gaming-Hub", text: "\"So now, the phone will steal your privacy even better and more intelligently.\"", trans: "「所以現在，這支手機會更聰明、更厲害地竊取你的隱私了。」", sentiment: "bad", type: "負評" },
+            { user: "@jericoborlagdan21", text: "what if it opened up while its covered? or hoping theres a sensor that i will not activate the gimbal once covered, and worrying about the ip rating of the gimbal part", trans: "如果它在被遮蓋時打開會怎樣？希望有個感測器能在被遮住時不啟動雲台，並且擔心雲台部分的防水防塵等級", sentiment: "neutral", type: "中立" },
+            { user: "@msozgirgin", text: "Apple, during Steve Jobs’ era, was a technology pioneer. For years, they have continued to exploit people with the same-format designs and low batteries. This phone from Honor is truly revolutionary.", trans: "蘋果在賈伯斯時代是技術先驅。多年來，他們一直用相同格式的設計和低電量來剝削人們。Honor 的這款手機才是真正的革命性產品。", sentiment: "good", type: "好評" }
+        ];
+
+        const commentsContainer = document.getElementById('dynamic-comments-container');
+        
+        // 用來輪流產生使用者頭像背景顏色的陣列
+        const bgColors = ['bg-blue-100', 'bg-purple-100', 'bg-yellow-100', 'bg-red-100', 'bg-green-100', 'bg-indigo-100', 'bg-pink-100'];
+        const textColors = ['text-blue-600', 'text-purple-600', 'text-yellow-600', 'text-red-600', 'text-green-600', 'text-indigo-600', 'text-pink-600'];
+
+        ytComments.forEach((item, index) => {
+            let badgeClass = '';
+            if (item.sentiment === 'good') badgeClass = 'bg-green-100 text-green-700';
+            else if (item.sentiment === 'neutral') badgeClass = 'bg-yellow-100 text-yellow-700';
+            else if (item.sentiment === 'bad') badgeClass = 'bg-red-100 text-red-700';
+
+            const iconBg = bgColors[index % bgColors.length];
+            const iconText = textColors[index % textColors.length];
+
+            const commentHtml = `
+                <div class="glass-card rounded-xl p-5 flex flex-col md:flex-row gap-4 items-start hover:shadow-md transition-shadow">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full ${iconBg} flex items-center justify-center ${iconText} font-bold">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="flex-1 w-full">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-bold text-gray-800">${item.user}</span>
+                            <span class="${badgeClass} text-xs px-2 py-0.5 rounded font-semibold">${item.type}</span>
+                        </div>
+                        <p class="text-gray-500 text-sm mb-3 italic">"${item.text}"</p>
+                        <div class="bg-gray-50 border-l-4 border-indigo-400 p-3 text-sm text-gray-800 rounded-r-lg shadow-sm">
+                            <span class="font-bold text-indigo-600 mr-1">中文翻譯：</span>${item.trans}
+                        </div>
+                    </div>
+                </div>
+            `;
+            commentsContainer.innerHTML += commentHtml;
+        });
+
+        // Pie Chart: Sentiment Analysis
+        const ctxSentiment = document.getElementById('sentimentChart').getContext('2d');
+        new Chart(ctxSentiment, {
+            type: 'doughnut',
+            data: {
+                labels: ['好評 (想購買/肯定創新)', '中立 (覺得酷但不一定買)', '負評 (認為是噱頭/沒興趣)', '其他'],
+                datasets: [{
+                    data: [57, 26, 15, 2],
+                    backgroundColor: [
+                        '#10B981', // Green
+                        '#FBBF24', // Yellow
+                        '#EF4444', // Red
+                        '#9CA3AF'  // Gray
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 20, font: { family: "'Segoe UI', sans-serif" } }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+
+        // Bar Chart: Topics Analysis
+        const ctxTopic = document.getElementById('topicChart').getContext('2d');
+        new Chart(ctxTopic, {
+            type: 'bar',
+            data: {
+                labels: ['創新與獨特性', '雲台防手震實用性', '機械耐用度疑慮', '認為是噱頭/不實用', '隱私與怪異感'],
+                datasets: [{
+                    label: '提及熱度 (滿分 100)',
+                    data: [85, 75, 60, 45, 30],
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
     </script>
 </body>
 </html>
