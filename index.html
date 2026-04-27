@@ -60,6 +60,7 @@
     const GitCommit = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/></svg>;
     const Plus = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const Minus = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M5 12h14"/></svg>;
+    const Loader = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 
     // --- 主程式 ---
     function BOMComparator() {
@@ -68,6 +69,8 @@
       const [results, setResults] = useState(null);
       // 新增狀態：是否保留原始順序 (預設為 true)
       const [preserveOrder, setPreserveOrder] = useState(true);
+      // 新增狀態：是否正在比對中 (Loading 狀態)
+      const [isComparing, setIsComparing] = useState(false);
       
       const fileInput1Ref = useRef(null);
       const fileInput2Ref = useRef(null);
@@ -170,115 +173,125 @@
           return;
         }
 
-        const parsed1 = parseBOM(bom1Text);
-        const parsed2 = parseBOM(bom2Text);
-        
-        const map1 = parsed1.map;
-        const map2 = parsed2.map;
-        const list1 = parsed1.list;
-        const list2 = parsed2.list;
+        // 清空舊結果並開啟 Loading 狀態
+        setResults(null);
+        setIsComparing(true);
 
-        const onlyInBom1 = [];
-        const onlyInBom2 = [];
-        const qtyDiff = []; 
-        const common = [];  
+        // 加上延遲，模擬「認真比對」的視覺效果 (1.5 秒)
+        setTimeout(() => {
+          const parsed1 = parseBOM(bom1Text);
+          const parsed2 = parseBOM(bom2Text);
+          
+          const map1 = parsed1.map;
+          const map2 = parsed2.map;
+          const list1 = parsed1.list;
+          const list2 = parsed2.list;
 
-        // 1. 群組統計分析 (計算卡片與摘要表格用)
-        map1.forEach((items1, key) => {
-          if (map2.has(key)) {
-            const items2 = map2.get(key);
-            const qty1Str = items1.map(i => i.qty).sort().join(',');
-            const qty2Str = items2.map(i => i.qty).sort().join(',');
+          const onlyInBom1 = [];
+          const onlyInBom2 = [];
+          const qtyDiff = []; 
+          const common = [];  
 
-            if (qty1Str === qty2Str) {
-              common.push({ key, bom1: items1, bom2: items2 });
+          // 1. 群組統計分析 (計算卡片與摘要表格用)
+          map1.forEach((items1, key) => {
+            if (map2.has(key)) {
+              const items2 = map2.get(key);
+              const qty1Str = items1.map(i => i.qty).sort().join(',');
+              const qty2Str = items2.map(i => i.qty).sort().join(',');
+
+              if (qty1Str === qty2Str) {
+                common.push({ key, bom1: items1, bom2: items2 });
+              } else {
+                qtyDiff.push({ key, bom1: items1, bom2: items2 });
+              }
             } else {
-              qtyDiff.push({ key, bom1: items1, bom2: items2 });
+              items1.forEach(item => onlyInBom1.push({ key, ...item }));
             }
-          } else {
-            items1.forEach(item => onlyInBom1.push({ key, ...item }));
-          }
-        });
+          });
 
-        map2.forEach((items2, key) => {
-          if (!map1.has(key)) {
-            items2.forEach(item => onlyInBom2.push({ key, ...item }));
-          }
-        });
-
-        // 2. 順序保留的差異對比演算法 (Unified View Diff Algorithm)
-        const unifiedBOM = [];
-        let i = 0; // list1 pointer
-        let j = 0; // list2 pointer
-
-        while (i < list1.length || j < list2.length) {
-          if (i < list1.length && j < list2.length && list1[i].compareKey === list2[j].compareKey) {
-            // 順序與料號均匹配
-            const status = list1[i].qty === list2[j].qty ? 'UNCHANGED' : 'QTY_DIFF';
-            unifiedBOM.push({
-              ...list1[i],
-              status,
-              bom1Line: list1[i].lineNum,
-              bom2Line: list2[j].lineNum,
-              bom2Qty: list2[j].qty,
-            });
-            i++;
-            j++;
-          } else {
-            // 遇到差異，往後尋找 (Lookahead Window: 500行) 來判斷是新增還是刪除
-            let foundInList2 = -1;
-            if (i < list1.length) {
-              for (let k = j; k < Math.min(j + 500, list2.length); k++) {
-                if (list1[i].compareKey === list2[k].compareKey) { foundInList2 = k; break; }
-              }
+          map2.forEach((items2, key) => {
+            if (!map1.has(key)) {
+              items2.forEach(item => onlyInBom2.push({ key, ...item }));
             }
-            
-            let foundInList1 = -1;
-            if (j < list2.length) {
-              for (let k = i; k < Math.min(i + 500, list1.length); k++) {
-                if (list2[j].compareKey === list1[k].compareKey) { foundInList1 = k; break; }
-              }
-            }
+          });
 
-            if (foundInList2 !== -1 && foundInList1 === -1) {
-              // 在 BOM 2 後方有找到，但 BOM 1 沒有 -> 當前 j 屬於 BOM 2 新增的
-              unifiedBOM.push({ ...list2[j], status: 'ADDED', bom1Line: '-', bom2Line: list2[j].lineNum });
-              j++;
-            } else if (foundInList1 !== -1 && foundInList2 === -1) {
-              // 在 BOM 1 後方有找到，但 BOM 2 沒有 -> 當前 i 屬於 BOM 1 被刪除的
-              unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
+          // 2. 順序保留的差異對比演算法 (Unified View Diff Algorithm)
+          const unifiedBOM = [];
+          let i = 0; // list1 pointer
+          let j = 0; // list2 pointer
+
+          while (i < list1.length || j < list2.length) {
+            if (i < list1.length && j < list2.length && list1[i].compareKey === list2[j].compareKey) {
+              // 順序與料號均匹配
+              const status = list1[i].qty === list2[j].qty ? 'UNCHANGED' : 'QTY_DIFF';
+              unifiedBOM.push({
+                ...list1[i],
+                status,
+                bom1Line: list1[i].lineNum,
+                bom2Line: list2[j].lineNum,
+                bom2Qty: list2[j].qty,
+              });
               i++;
-            } else if (foundInList1 !== -1 && foundInList2 !== -1) {
-              // 雙方後方都有找到，以距離近的優先處置
-              if (foundInList1 - i < foundInList2 - j) {
-                unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
-                i++;
-              } else {
-                unifiedBOM.push({ ...list2[j], status: 'ADDED', bom1Line: '-', bom2Line: list2[j].lineNum });
-                j++;
-              }
+              j++;
             } else {
-              // 都沒找到，先將清空當前的 i (標示為刪除)，再清空當前的 j (標示為新增)
+              // 遇到差異，往後尋找 (Lookahead Window: 500行) 來判斷是新增還是刪除
+              let foundInList2 = -1;
               if (i < list1.length) {
-                unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
-                i++;
-              } else {
+                for (let k = j; k < Math.min(j + 500, list2.length); k++) {
+                  if (list1[i].compareKey === list2[k].compareKey) { foundInList2 = k; break; }
+                }
+              }
+              
+              let foundInList1 = -1;
+              if (j < list2.length) {
+                for (let k = i; k < Math.min(i + 500, list1.length); k++) {
+                  if (list2[j].compareKey === list1[k].compareKey) { foundInList1 = k; break; }
+                }
+              }
+
+              if (foundInList2 !== -1 && foundInList1 === -1) {
+                // 在 BOM 2 後方有找到，但 BOM 1 沒有 -> 當前 j 屬於 BOM 2 新增的
                 unifiedBOM.push({ ...list2[j], status: 'ADDED', bom1Line: '-', bom2Line: list2[j].lineNum });
                 j++;
+              } else if (foundInList1 !== -1 && foundInList2 === -1) {
+                // 在 BOM 1 後方有找到，但 BOM 2 沒有 -> 當前 i 屬於 BOM 1 被刪除的
+                unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
+                i++;
+              } else if (foundInList1 !== -1 && foundInList2 !== -1) {
+                // 雙方後方都有找到，以距離近的優先處置
+                if (foundInList1 - i < foundInList2 - j) {
+                  unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
+                  i++;
+                } else {
+                  unifiedBOM.push({ ...list2[j], status: 'ADDED', bom1Line: '-', bom2Line: list2[j].lineNum });
+                  j++;
+                }
+              } else {
+                // 都沒找到，先將清空當前的 i (標示為刪除)，再清空當前的 j (標示為新增)
+                if (i < list1.length) {
+                  unifiedBOM.push({ ...list1[i], status: 'REMOVED', bom1Line: list1[i].lineNum, bom2Line: '-' });
+                  i++;
+                } else {
+                  unifiedBOM.push({ ...list2[j], status: 'ADDED', bom1Line: '-', bom2Line: list2[j].lineNum });
+                  j++;
+                }
               }
             }
           }
-        }
 
-        setResults({
-          onlyInBom1,
-          onlyInBom2,
-          qtyDiff,
-          common,
-          unifiedBOM,
-          totalBom1: map1.size,
-          totalBom2: map2.size
-        });
+          setResults({
+            onlyInBom1,
+            onlyInBom2,
+            qtyDiff,
+            common,
+            unifiedBOM,
+            totalBom1: map1.size,
+            totalBom2: map2.size
+          });
+
+          // 關閉 Loading 狀態
+          setIsComparing(false);
+        }, 1500);
       };
 
       const commonCount = results ? results.common.reduce((acc, curr) => acc + curr.bom1.length, 0) : 0;
@@ -394,14 +407,28 @@
             <div className="flex justify-center">
               <button 
                 onClick={handleCompare}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                disabled={isComparing}
+                className={`text-white text-lg font-medium px-8 py-3 rounded-full shadow-lg transition-all flex items-center gap-2 ${isComparing ? 'bg-blue-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-xl'}`}
               >
-                <ArrowRightLeft className="w-5 h-5" /> 開始比對差異
+                {isComparing ? (
+                  <><Loader className="w-5 h-5 animate-spin" /> 深度比對中...</>
+                ) : (
+                  <><ArrowRightLeft className="w-5 h-5" /> 開始比對差異</>
+                )}
               </button>
             </div>
 
+            {/* Loading 狀態顯示區塊 */}
+            {isComparing && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-16 flex flex-col items-center justify-center animate-fade-in mt-6">
+                <Loader className="w-14 h-14 text-blue-600 animate-spin mb-4" />
+                <h3 className="text-2xl font-bold text-slate-700">正在進行深度比對...</h3>
+                <p className="text-slate-500 mt-2">系統正在解析料號、過濾特殊符號、比對用量與還原階層順序</p>
+              </div>
+            )}
+
             {/* Results Section */}
-            {results && (
+            {results && !isComparing && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
                 <h2 className="text-2xl font-bold text-slate-800 mb-6 border-b pb-4">比對結果分析</h2>
                 
