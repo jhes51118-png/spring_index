@@ -13,8 +13,8 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- 載入 SheetJS (用於解析 Excel) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- 使用 xlsx-js-style 替代原本的 xlsx，以支援匯出漂亮的 Excel 樣式 -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
   <style>
     /* 簡易動畫 */
@@ -61,6 +61,7 @@
     const Plus = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const Minus = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M5 12h14"/></svg>;
     const Loader = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+    const Download = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>;
 
     // --- 主程式 ---
     function BOMComparator() {
@@ -131,9 +132,10 @@
           const isSecondSource = rawPartString.includes('S:');
 
           // ==========================================
-          // 核心修復：無視括弧內的序號數字
+          // 核心修復：無視括弧內的序號數字與系統字眼
           // ==========================================
           let cleanPartNumber = rawPartString
+            .replace(/\(\s*view\s*\)/gi, '') // 新增：徹底忽略系統自動帶出的 (view) 字眼
             .replace(/\(\s*\d+\s*\)/g, '')  // 1. 徹底拔除所有 (數字) 序號，例如 (70), (100)
             .replace(/S:/gi, '')            // 2. 移除 S: 標記
             .replace(/^[\s|.\-]+/, '')      // 3. 移除開頭殘留的階層符號 (如 | 或 -) 讓顯示更美觀
@@ -294,11 +296,12 @@
         }, 1500);
       };
 
+      // 計算統計數字
       const commonCount = results ? results.common.reduce((acc, curr) => acc + curr.bom1.length, 0) : 0;
       const qtyDiffCount = results ? results.qtyDiff.length : 0;
 
       // ==========================================
-      // 動態決定「完整變更歷程」要顯示的資料
+      // 動態決定「完整變更歷程」要顯示的資料 (供渲染與匯出 Excel 用)
       // ==========================================
       let displayUnifiedBOM = [];
       if (results) {
@@ -328,6 +331,120 @@
           displayUnifiedBOM.sort((a, b) => a.compareKey.localeCompare(b.compareKey));
         }
       }
+
+      // ==========================================
+      // 匯出包含 UI 樣式的 Excel 檔案
+      // ==========================================
+      const handleExportExcel = () => {
+        if (!results || !window.XLSX) return;
+        
+        const now = new Date();
+        // 格式化時間：YYYY-MM-DD HH:mm:ss
+        const timeStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+        
+        const wb = XLSX.utils.book_new();
+        
+        // 準備資料陣列
+        const wsData = [
+          ['智能 BOM 比對結果報告', '', '', '', '', '', '', `匯出時間：${timeStr}`], // 第一列大標題與時間
+          ['狀態', 'BOM 1 原行號', 'BOM 2 新行號', '屬性', '顯示料號', '描述 (Description)', 'BOM 1 數量', 'BOM 2 數量'] // 標頭列
+        ];
+
+        // 寫入資料內容
+        displayUnifiedBOM.forEach(item => {
+          const statusText = item.status === 'REMOVED' ? '減少' : item.status === 'ADDED' ? '新增' : item.status === 'QTY_DIFF' ? '用量差異' : '無差異';
+          const attrText = item.isSecondSource ? 'S: 替代' : '主料';
+          const qty1 = item.status === 'ADDED' ? '-' : item.qty;
+          const qty2 = item.status === 'REMOVED' ? '-' : (item.bom2Qty || item.qty);
+          wsData.push([statusText, item.bom1Line, item.bom2Line, attrText, item.displayPart, item.description, qty1, qty2]);
+        });
+
+        // 將陣列轉換為 SheetJS 工作表物件
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // 合併 A1 到 F1 做為大標題空間
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+
+        // === 1. 設定大標題與時間戳記樣式 ===
+        ws['A1'].s = { font: { sz: 14, bold: true, color: { rgb: "FF1E293B" } }, alignment: { vertical: 'center' } };
+        ws['H1'].s = { font: { sz: 10, italic: true, color: { rgb: "FF64748B" } }, alignment: { horizontal: 'right', vertical: 'center' } };
+
+        // === 2. 設定標頭列樣式 (灰色底、粗體) ===
+        for (let C = 0; C <= 7; C++) {
+          const cellRef = XLSX.utils.encode_cell({ r: 1, c: C });
+          if (!ws[cellRef]) continue;
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: "FFE2E8F0" } }, // slate-200
+            font: { bold: true, color: { rgb: "FF334155" } }, // slate-700
+            border: { bottom: { style: 'medium', color: { rgb: "FF94A3B8" } } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+
+        // === 3. 設定資料列動態樣式 (與 UI 畫面完全對應) ===
+        displayUnifiedBOM.forEach((item, idx) => {
+          const R = idx + 2; // 避開 0-based 以及前兩行 Header
+          
+          // 決定整行的基礎顏色
+          let rowStyle = {};
+          if (item.status === 'REMOVED') {
+            rowStyle = { fill: { fgColor: { rgb: "FFFEF2F2" } }, font: { color: { rgb: "FF991B1B" }, strike: true } }; // 淺紅底、深紅字、刪除線
+          } else if (item.status === 'ADDED') {
+            rowStyle = { fill: { fgColor: { rgb: "FFF0FDF4" } }, font: { color: { rgb: "FF166534" } } }; // 淺綠底、深綠字
+          } else if (item.status === 'QTY_DIFF') {
+            rowStyle = { fill: { fgColor: { rgb: "FFFFF7ED" } }, font: { color: { rgb: "FF9A3412" }, bold: true } }; // 淺橘底、深橘字加粗
+          } else {
+            rowStyle = { font: { color: { rgb: "FF334155" } } }; // 預設深灰字
+          }
+
+          // 逐欄套用樣式
+          for (let C = 0; C <= 7; C++) {
+            const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cellRef]) continue;
+
+            // 複製基礎樣式
+            let cellStyle = JSON.parse(JSON.stringify(rowStyle));
+            cellStyle.alignment = { vertical: 'center' };
+
+            // 讓大部分狀態與數字置中，描述與料號靠左
+            if ([0, 1, 2, 3, 6, 7].includes(C)) {
+              cellStyle.alignment.horizontal = 'center';
+            }
+
+            // === Qty Diff (用量差異) 特殊的雙色格子設計 ===
+            if (item.status === 'QTY_DIFF') {
+              if (C === 6) {
+                // BOM 1 用量顯示為紅色
+                cellStyle = { ...cellStyle, fill: { fgColor: { rgb: "FFFEE2E2" } }, font: { color: { rgb: "FFDC2626" }, bold: true } };
+              } else if (C === 7) {
+                // BOM 2 用量顯示為綠色
+                cellStyle = { ...cellStyle, fill: { fgColor: { rgb: "FFDCFCE7" } }, font: { color: { rgb: "FF16A34A" }, bold: true } };
+              }
+            }
+
+            ws[cellRef].s = cellStyle;
+          }
+        });
+
+        // === 4. 設定欄寬 ===
+        ws['!cols'] = [
+          { wch: 10 }, // 狀態
+          { wch: 15 }, // BOM1 原行號
+          { wch: 15 }, // BOM2 新行號
+          { wch: 10 }, // 屬性
+          { wch: 35 }, // 顯示料號
+          { wch: 65 }, // 描述
+          { wch: 15 }, // BOM1 數量
+          { wch: 15 }  // BOM2 數量
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, "比對結果");
+
+        // 組合檔名並下載
+        const fileNameTime = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+        const fileName = `BOM比對報告_${fileNameTime}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+      };
 
       return (
         <div className="min-h-screen p-6">
@@ -430,7 +547,17 @@
             {/* Results Section */}
             {results && !isComparing && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-                <h2 className="text-2xl font-bold text-slate-800 mb-6 border-b pb-4">比對結果分析</h2>
+                
+                {/* 包含匯出按鈕的頂部區域 */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4 gap-4">
+                  <h2 className="text-2xl font-bold text-slate-800">比對結果分析</h2>
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-medium transition shadow-sm hover:shadow-md"
+                  >
+                    <Download className="w-5 h-5" /> 匯出 Excel 報告 (含樣式)
+                  </button>
+                </div>
                 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
